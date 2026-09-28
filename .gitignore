@@ -1,16 +1,43 @@
-# Virtual Environment
+# ==============================================================================
+# .gitignore - Projeto Matrix Tiling
+# ==============================================================================
+
+# Ambientes Virtuais Python
 .venv/
 venv/
+env/
+ENV/
 
-# Python cache
+# Python Cache e Bytecode
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.pytest_cache/
 
-# C compiled executables
+# Jupyter Notebook Checkpoints (arquivos temporários do editor)
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Compilação C / C++ (Executáveis e Objetos)
 *.exe
 *.out
 *.o
+*.obj
+*.lib
+*.a
+*.dll
+*.dylib
 
-# Matrizes binárias geradas (mantendo apenas .gitkeep)
-**/bin_c/*.bin
-**/bin_python/*.bin
+# Matrizes Binárias Geradas em Disco (preservando estrutura de pastas via .gitkeep)
+*.bin
+!**/.gitkeep
+
+# Arquivos Temporários de Sistema Operacional (Windows / macOS)
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs e Temporários Locais
+*.log
+.vscode/*.log

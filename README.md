@@ -13,10 +13,9 @@ matrix-tiling/
 ├── README.md                           # Guia do projeto e roteiro de apresentação
 │
 ├── src_t1/                             # Tarefa 1: Tiling sem buffer, Validação e Auditoria
-│   ├── matrix_multi.c                  # Código C com algoritmo mult_tiling em precisão dupla (dados bipolares)
-│   ├── matrix_tiling.py                # Script de validação individual (C vs NumPy)
-│   ├── validacao.py                    # Script CLI que calcula N e roda N testes auditados
-│   ├── validacao.ipynb                 # Notebook interativo com orquestração, gráficos e auditoria
+│   ├── matrix_multi.c                  # Módulo C: computação mult_tiling em precisão dupla (dados bipolares)
+│   ├── matrix_multi.py                # Módulo Python: multiplicação de referência com NumPy
+│   ├── validacao.ipynb                 # Notebook interativo: orquestração de C e Python, gráficos e auditoria
 │   ├── analise_estatistica.md          # Fundamentação teórica das fórmulas de dimensionamento (N)
 │   ├── metricas_validacao.md           # Guia didático das métricas (maior_erro_abs, erro_ulps, erro_rel_frob)
 │   │
@@ -87,15 +86,9 @@ gcc -O2 -Wall -Wextra src_t1/matrix_multi.c -o matrix_multi
 
 ### 2. Rodar a Validação Individual em Python
 ```powershell
-.\.venv\Scripts\python.exe src_t1/matrix_tiling.py
+.\.venv\Scripts\python.exe src_t1/matrix_multi.py
 ```
 *(Lê os binários de C, calcula o produto via NumPy, grava `src_t1/bin_python/C.bin` e valida a tolerância)*
 
-### 3. Rodar a Bateria Completa de 30 Testes Auditados (CLI)
-```powershell
-.\.venv\Scripts\python.exe src_t1/validacao.py
-```
-*(Dimensiona $N$, compila C, executa os 30 testes com seeds diferentes, gera os hashes SHA-256 e grava `src_t1/auditoria_testes.csv`)*
-
-### 4. Abrir o Notebook Interativo no VS Code
-- **[`src_t1/validacao.ipynb`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/validacao.ipynb)**: Contém o Gráfico de Controle Temporal dos 30 testes, histograma em ULPs, dedução teórica com números negativos e tabela completa de auditoria com SHA-256.
+### 3. Abrir o Notebook Interativo no VS Code (Validação e Auditoria)
+- **[`src_t1/validacao.ipynb`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/validacao.ipynb)**: Orquestra tanto o executável C (`matrix_multi.exe`) quanto o módulo Python (`matrix_multi.py`), executa a bateria estatística de 30 testes auditados com SHA-256 e plota os gráficos de controle e histogramas.
