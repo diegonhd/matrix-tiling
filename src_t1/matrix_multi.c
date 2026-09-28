@@ -1,57 +1,84 @@
+/*
+ * ==============================================================================
+ * PROJETO: Multiplicação de Matrizes com Otimização de Cache (Tiling / Blocking)
+ * ARQUIVO: matrix_multi.c (Tarefa 1 - src_t1)
+ * OBJETIVO: Implementar a multiplicação C = A * B utilizando o algoritmo de Tiling
+ *           em precisão dupla (double) e exportar os dados em formato binário (.bin).
+ * ==============================================================================
+ * 
+ * CONCEITO CHAVE PARA EXPLICAR AO PROFESSOR:
+ * 1. O que é Tiling (Blocking)?
+ *    A multiplicação ingênua itera toda a linha de A e coluna de B, gerando muitos
+ *    "cache misses" porque matrizes grandes não cabem inteiras na memória Cache L1/L2.
+ *    O Tiling particiona a matriz em sub-blocos de tamanho BxB (aqui, B=8). Cada bloco
+ *    é carregado na cache e reutilizado exaustivamente antes de buscar novos dados da RAM.
+ * 
+ * 2. Por que precisão dupla (double)?
+ *    Garante 53 bits de mantissa (~15 a 17 dígitos decimais de precisão), reduzindo o
+ *    erro de arredondamento acumulado de ~10^-4 (em float) para ~10^-13 (em double).
+ * ==============================================================================
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <stdbool.h>
 
-#define N 45          // Tamanho da matriz (bate o requisito de ~2000 elementos: 45*45=2025)
-#define BLOCK 8        // Tamanho do bloco (parametrizável: testar 8, 16, etc.)
+// Dimensão da matriz quadrada (45x45 = 2025 elementos, atende ao requisito de ~2000)
+#define N 45
 
-void gerar_matriz_aleatoria(float M[N][N], unsigned int seed) {
+// Tamanho do bloco de Tiling (parâmetro de sintonia da Cache L1)
+#define BLOCK 8
+
+/**
+ * Preenche a matriz com valores pseudo-aleatórios uniformes entre -10.0 e +9.9.
+ * Simula leituras bipolares de sensores embarcados (ex: acelerômetros e IMUs).
+ * Recebe uma seed fixa para permitir reprodução determinística dos testes.
+ */
+void gerar_matriz_aleatoria(double M[N][N], unsigned int seed) {
     srand(seed);
-    for (int i = 0; i < N; i++)
-        for (int j = 0; j < N; j++)
-            M[i][j] = (float)(rand() % 100) / 10.0f; // valores entre 0.0 e 9.9
-}
-
-
-void mult_ingenua(float A[N][N], float B[N][N], float C[N][N]) {
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            float soma = 0.0f;
-            for (int k = 0; k < N; k++) {
-                soma += A[i][k] * B[k][j];
-            }
-            C[i][j] = soma;
+            M[i][j] = ((double)(rand() % 200) - 100.0) / 10.0;
         }
     }
 }
 
-static inline int min_int(int a, int b){
-    return (a < b) ? a : b;  // função auxiliar para retornar quem é maior entre a e b
+/**
+ * Função auxiliar que retorna o menor entre dois inteiros.
+ * Essencial para tratar as bordas da matriz caso N não seja múltiplo exato de BLOCK.
+ */
+static inline int min_int(int a, int b) {
+    return (a < b) ? a : b;
 }
 
-void mult_tiling(float A[N][N], float B[N][N], float C[N][N]) {
-    memset(C, 0, sizeof(float) * N * N); // inicia a matriz resultante C com zeros
- 
+/**
+ * Multiplicação com particionamento em blocos (Tiling / Blocking).
+ * Estrutura com 6 laços aninhados:
+ *  - 3 laços externos (ii, jj, kk): navegam bloco a bloco pela matriz.
+ *  - 3 laços internos (i, j, k): realizam a multiplicação dos elementos dentro do bloco atual.
+ */
+void mult_tiling(double A[N][N], double B[N][N], double C[N][N]) {
+    // Inicializa a matriz resultante com zeros
+    memset(C, 0, sizeof(double) * N * N);
 
-    for(int ii = 0; ii < N; ii += BLOCK){ // faz a limitação horizontal do primeiro bloco
+    // Laços externos: delimitam as coordenadas dos blocos
+    for (int ii = 0; ii < N; ii += BLOCK) {
         int i_max = min_int(ii + BLOCK, N);
 
-        for (int jj = 0; jj < N; jj += BLOCK){ // faz a limitação vertical
+        for (int jj = 0; jj < N; jj += BLOCK) {
             int j_max = min_int(jj + BLOCK, N);
 
-            for (int kk = 0; kk < N; kk += BLOCK){  // faz a iteração da multiplicação (itera a coluna de A e a linha de B)
-                int k_max = min_int(kk + BLOCK, N); // k_max recebe a ultima posição da diagonal
+            for (int kk = 0; kk < N; kk += BLOCK) {
+                int k_max = min_int(kk + BLOCK, N);
 
-                for (int i = ii; i < i_max; i++){ // retorna em que linha a iteração está
-                    for (int j = jj; j < j_max; j++){ // retorna em que coluna a iteração está
-                        float soma = C[i][j]; // coloca o valor inicial da posição da matriz C na variavel temporaria soma (valor inicial em C é 0-> memset)
-                    
-                    for (int k = kk; k < k_max; k++){
-                        soma += A[i][k] * B[k][j]; // ssoma a multiplicação de cada posição no iterador k(que itera linha de A e coluna de B)
-                    }
-                    C[i][j] = soma;
+                // Laços internos: multiplicam e acumulam dentro da memória rápida (Cache)
+                for (int i = ii; i < i_max; i++) {
+                    for (int j = jj; j < j_max; j++) {
+                        double soma = C[i][j];
+                        for (int k = kk; k < k_max; k++) {
+                            soma += A[i][k] * B[k][j];
+                        }
+                        C[i][j] = soma;
                     }
                 }
             }
@@ -59,65 +86,72 @@ void mult_tiling(float A[N][N], float B[N][N], float C[N][N]) {
     }
 }
 
-int carregar_matriz(const char *arquivo, float M[N][N]) {
-    FILE *f = fopen(arquivo, "r");
-    if (!f) {
-        fprintf(stderr, "Erro ao abrir %s\n", arquivo);
-        return -1;
+/**
+ * Salva a matriz em formato binário bruto (.bin) em precisão dupla (8 bytes por valor).
+ * Suporta execução tanto a partir de dentro de 'src_t1/' quanto da raiz do repositório.
+ */
+void salvar_matriz(const char *nome, double M[N][N]) {
+    char caminho[128];
+
+    // 1. Tenta salvar na pasta local "bin_c/" (se executado de dentro de src_t1)
+    snprintf(caminho, sizeof(caminho), "bin_c/%s", nome);
+    FILE *arquivo = fopen(caminho, "wb");
+
+    // 2. Se falhar, tenta "src_t1/bin_c/" (se executado da raiz do projeto)
+    if (!arquivo) {
+        snprintf(caminho, sizeof(caminho), "src_t1/bin_c/%s", nome);
+        arquivo = fopen(caminho, "wb");
     }
-    for (int i = 0; i < N; i++)
-        for (int j = 0; j < N; j++)
-            if (fscanf(f, "%f", &M[i][j]) != 1) {
-                fprintf(stderr, "Erro de leitura em %s [%d][%d]\n", arquivo, i, j);
-                fclose(f);
-                return -1;
-            }
-    fclose(f);
-    return 0;
+
+    if (!arquivo) {
+        printf("[ERRO] Nao foi possivel criar o arquivo binario: %s\n", caminho);
+        exit(1);
+    }
+
+    // Grava N*N elementos de 8 bytes cada (45*45*8 = 16.200 bytes por matriz)
+    fwrite(M, sizeof(double), N * N, arquivo);
+    fclose(arquivo);
+    printf("  -> Arquivo salvo: %s (16.200 bytes)\n", caminho);
 }
 
-int comparar_matrizes(float X[N][N], float Y[N][N], float tolerancia) {
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            float diff = X[i][j] - Y[i][j];
-            if (diff < 0) diff = -diff;
-            if (diff > tolerancia) {
-                printf("Divergencia em [%d][%d]: %.6f vs %.6f (diff=%.6f)\n",
-                       i, j, X[i][j], Y[i][j], diff);
-                return 0;
-            }
-        }
+/**
+ * Função principal:
+ * Permite passar seeds opcionais via linha de comando para suportar testes automatizados:
+ *   ./matrix_multi [seedA] [seedB]
+ * Se nenhuma seed for passada, adota por padrão seedA=42 e seedB=123.
+ */
+int main(int argc, char *argv[]) {
+    unsigned int seedA = 42;
+    unsigned int seedB = 123;
+
+    if (argc >= 3) {
+        seedA = (unsigned int)atoi(argv[1]);
+        seedB = (unsigned int)atoi(argv[2]);
     }
-    return 1;
-}
 
-int main(void){
-    static float A[N][N]; // static evita estourar a pilha com N grande
-    static float B[N][N];
-    static float C_ingenua[N][N];
-    static float C_tiling[N][N];
+    // 'static' aloca na área de dados globais/estáticos, evitando estouro de pilha (stack overflow)
+    static double A[N][N];
+    static double B[N][N];
+    static double C_tiling[N][N];
 
-    clock_t t0, t1;
-    gerar_matriz_aleatoria(A, 42);   // seed fixa: reprodutível
-    gerar_matriz_aleatoria(B, 123);
-    
-    // para carregar a matriz em txt
+    printf("=====================================================\n");
+    printf(" MULTIPLICACAO COM TILING EM C (N=%d, BLOCK=%d, DOUBLE)\n", N, BLOCK);
+    printf(" Seeds utilizadas: A=%u, B=%u\n", seedA, seedB);
+    printf("=====================================================\n");
 
-    // if (carregar_matriz("A.txt", A) != 0) return 1;
-    // if (carregar_matriz("B.txt", B) != 0) return 1;
+    // 1. Geração determinística das matrizes de entrada
+    gerar_matriz_aleatoria(A, seedA);
+    gerar_matriz_aleatoria(B, seedB);
 
-    t0 = clock();
-    mult_ingenua(A, B, C_ingenua);
-    t1 = clock();
-    printf("Ingenua:        %.6f s\n", (double)(t1 - t0) / CLOCKS_PER_SEC);
-
-    t0 = clock();
+    // 2. Computação com Tiling
     mult_tiling(A, B, C_tiling);
-    t1 = clock();
-    printf("Tiling:         %.6f s\n", (double)(t1 - t0) / CLOCKS_PER_SEC);
 
-    printf("\nValidacao tiling vs ingenua:        %s\n",
-           comparar_matrizes(C_ingenua, C_tiling, 1e-4f) ? "OK" : "FALHOU");
+    // 3. Serialização binária em disco
+    printf("Gravando matrizes em bin_c/...\n");
+    salvar_matriz("A.bin", A);
+    salvar_matriz("B.bin", B);
+    salvar_matriz("C.bin", C_tiling);
+
+    printf("Computacao em C finalizada com sucesso!\n\n");
     return 0;
-
 }

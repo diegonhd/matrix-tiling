@@ -1,0 +1,16 @@
+# Virtual Environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# C compiled executables
+*.exe
+*.out
+*.o
+
+# Matrizes binárias geradas (mantendo apenas .gitkeep)
+**/bin_c/*.bin
+**/bin_python/*.bin
