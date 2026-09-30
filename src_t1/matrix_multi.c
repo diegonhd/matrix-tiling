@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef N
 #define N 45
+#endif
 #define BLOCK 8
 
 /**
