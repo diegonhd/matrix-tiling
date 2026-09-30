@@ -4,7 +4,6 @@ import math
 from pathlib import Path
 import numpy as np
 
-N = 45
 DIR_SRC = Path(__file__).resolve().parent
 DIR_BIN_C = DIR_SRC / "bin_c"
 DIR_BIN_PY = DIR_SRC / "bin_python"
