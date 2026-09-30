@@ -1,10 +1,10 @@
-# 📏 Guia Didático das Métricas de Validação Numérica
+# Guia Didático das Métricas de Validação Numérica
 
 Este documento explica de forma simples, intuitiva e prática o papel de cada uma das três métricas numéricas calculadas na nossa auditoria (`auditoria_testes.csv` e `validacao.ipynb`), demonstrando por que os métodos convencionais ingênuos falham e como a nossa abordagem resolve o problema com rigor científico.
 
 ---
 
-## 📑 Sumário das Métricas
+## Sumário das Métricas
 
 | Métrica no Código | Nome Formal | Para que serve? | Por que supera o método convencional? |
 | :--- | :--- | :--- | :--- |
@@ -16,12 +16,12 @@ Este documento explica de forma simples, intuitiva e prática o papel de cada um
 
 ## 1. `maior_erro_abs` — Maior Erro Absoluto Máximo
 
-### 🎯 O que é?
+### O que é?
 É a maior diferença absoluta encontrada entre qualquer elemento calculado pelo C e o gabarito do NumPy:
 
 $$\text{maior\_erro\_abs} = \max_{i, j} |C_{ij}^{\text{C}} - C_{ij}^{\text{NumPy}}|$$
 
-### ❌ O Método Convencional Ingênuo vs. ✅ Nosso Método
+### O Método Convencional Ingênuo vs. Nosso Método
 * **O Método Convencional:** Costuma calcular apenas o *erro médio* da matriz inteira.
   * *O perigo:* Se 2024 elementos tiverem erro zero e 1 único elemento tiver um erro grave de $5{,}0$, a média parecerá minúscula ($5{,}0 / 2025 \approx 0{,}002$), escondendo um bug crítico de transbordamento de memória ou ponteiro.
 * **Nosso Método (Engenharia de Pior Caso):**
@@ -30,7 +30,7 @@ $$\text{maior\_erro\_abs} = \max_{i, j} |C_{ij}^{\text{C}} - C_{ij}^{\text{NumPy
     $$E_{\text{máx}} \le \gamma_K \sum_{k=1}^K |A_{ik}| \cdot |B_{kj}| \le 45 \times (45 \times 10 \times 10) \times 2{,}22 \times 10^{-16} \approx 4{,}5 \times 10^{-11}$$
   * A tolerância $\mathbf{\text{atol} = 10^{-11}}$ é soberana: basta um único elemento ultrapassá-la para o teste ser reprovado.
 
-### 🔢 Exemplo Prático ($2 \times 2$):
+### Exemplo Prático ($2 \times 2$):
 Suponha que o NumPy calculou a matriz de referência e o C calculou com pequenas oscilações:
 
 $$C_{\text{NumPy}} = \begin{pmatrix} 10{,}0 & 20{,}0 \\ 30{,}0 & 40{,}0 \end{pmatrix}, \quad C_{\text{C}} = \begin{pmatrix} 10{,}0000000000001 & 20{,}0 \\ 30{,}0000000000003 & 40{,}0 \end{pmatrix}$$
@@ -46,14 +46,14 @@ $$C_{\text{NumPy}} = \begin{pmatrix} 10{,}0 & 20{,}0 \\ 30{,}0 & 40{,}0 \end{pma
 
 ## 2. `erro_ulps` — Desvio em Unidades no Último Lugar (ULP)
 
-### 🎯 O que é?
+### O que é?
 A sigla **ULP** (*Unit in the Last Place*) representa a distância física entre dois números vizinhos representáveis no padrão binário IEEE 754 de 64 bits (`double`). 
 
 Ela responde à pergunta fundamental: **"Quantos 'degraus' mínimos de hardware o C se afastou do NumPy?"**
 
 $$\text{erro\_ulps} = \frac{\text{maior\_erro\_abs}}{1\text{ ULP}(\text{magnitude})}$$
 
-### ❌ O Método Convencional Ingênuo vs. ✅ Nosso Método
+###  O Método Convencional Ingênuo vs.  Nosso Método
 * **O Método Convencional:** Olhar apenas para o número $10^{-13}$ e assumir que ele é sempre "muito pequeno".
   * *O engano:* Em ponto flutuante, a vírgula flutua. Se você estiver operando com números pequenos como $0{,}0001$, uma diferença de $10^{-13}$ pode representar milhares de ULPs de erro! Já para números grandes como $100.000$, o próprio hardware não consegue registrar passos menores que $10^{-11}$.
 * **Nosso Método (Invariância de Escala):**
@@ -62,7 +62,7 @@ $$\text{erro\_ulps} = \frac{\text{maior\_erro\_abs}}{1\text{ ULP}(\text{magnitud
     * Erro de **1 a 6 ULPs**: Indica que dos 53 bits de mantissa, **51 a 52 bits foram exatamente idênticos** nos dois códigos. Isso é ruído natural e inevitável de arredondamento ao somar em ordens diferentes no Tiling.
     * Erro de **milhares ou milhões de ULPs**: Seria sintoma de bug lógico (laço com índice errado, soma duplicada, etc.).
 
-### 🔢 Exemplo Prático:
+### Exemplo Prático:
 Suponha que um elemento da matriz resultante vale $C \approx 1100$.
 
 1. **Identificar a faixa de potência de 2:**  
@@ -78,7 +78,7 @@ Suponha que um elemento da matriz resultante vale $C \approx 1100$.
 
 ## 3. `erro_rel_frob` — Erro Relativo da Norma de Frobenius
 
-### 🎯 O que é?
+### O que é?
 É a razão entre o "tamanho global do erro da matriz inteira" e o "tamanho global da matriz de referência":
 
 $$\text{erro\_rel\_frob} = \frac{\|C_{\text{C}} - C_{\text{NumPy}}\|_F}{\|C_{\text{NumPy}}\|_F}$$
@@ -86,7 +86,7 @@ $$\text{erro\_rel\_frob} = \frac{\|C_{\text{C}} - C_{\text{NumPy}}\|_F}{\|C_{\te
 onde a Norma de Frobenius $\|M\|_F$ é a raiz quadrada da soma de todos os elementos da matriz elevados ao quadrado:
 $$\|M\|_F = \sqrt{\sum_{i=1}^N \sum_{j=1}^N |M_{ij}|^2}$$
 
-### ❌ O Método Convencional Ingênuo vs. ✅ Nosso Método
+### O Método Convencional Ingênuo vs. Nosso Método
 * **O Método Convencional (Divisão elemento a elemento):**
   $$\text{Erro Relativo} = \frac{|C_{\text{C}} - C_{\text{NumPy}}|}{|C_{\text{NumPy}}|}$$
   * *O desastre:* Em matrizes com números positivos e negativos (como os nossos dados de sensores $[-10{,}0, +9{,}9]$), os termos se anulam na soma ponderada.
@@ -97,7 +97,7 @@ $$\|M\|_F = \sqrt{\sum_{i=1}^N \sum_{j=1}^N |M_{ij}|^2}$$
   * O denominador $\|C_{\text{NumPy}}\|_F$ soma todos os quadrados da matriz e atinge valores na casa dos milhares ($\sim 10.000$).
   * **Consequência:** **Nunca ocorre divisão por zero** e obtém-se o erro percentual global real do bloco de memória.
 
-### 🔢 Exemplo Prático ($2 \times 2$ com cancelamento):
+### Exemplo Prático ($2 \times 2$ com cancelamento):
 Considere que o resultado real possui um zero por cancelamento exato:
 
 $$C_{\text{real}} = \begin{pmatrix} 3 & 4 \\ \mathbf{0} & 12 \end{pmatrix}, \quad C_{\text{C}} = \begin{pmatrix} 3 & 4 \\ \mathbf{0{,}0013} & 12 \end{pmatrix}$$
@@ -116,7 +116,7 @@ $$C_{\text{real}} = \begin{pmatrix} 3 & 4 \\ \mathbf{0} & 12 \end{pmatrix}, \qua
 
 ---
 
-## 📊 Síntese dos Resultados Obtidos na Nossa Auditoria
+## Síntese dos Resultados Obtidos na Nossa Auditoria
 
 Ao rodar a bateria oficial de $N = 30$ testes com dados bipolares simulando sensores embarcados, as três métricas convergiram perfeitamente:
 
