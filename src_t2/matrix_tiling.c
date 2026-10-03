@@ -4,7 +4,9 @@
 #include <time.h>
 #include <stdbool.h>
 
+#ifndef N
 #define N 45          // Tamanho da matriz (bate o requisito de ~2000 elementos: 45*45=2025)
+#endif
 #define BLOCK 8        // Tamanho do bloco (parametrizável: testar 8, 16, etc.)
 
 

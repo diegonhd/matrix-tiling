@@ -8,13 +8,13 @@
 #define BLOCK 8
 
 /**
- * Preenche a matriz com valores uniformes entre -10.0 e +9.9 (dados bipolares).
+ * Preenche a matriz com valores uniformes entre -10.0f e +9.9f (dados bipolares).
  */
-void gerar_matriz_aleatoria(double M[N][N], unsigned int seed) {
+void gerar_matriz_aleatoria(float M[N][N], unsigned int seed) {
     srand(seed);
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            M[i][j] = ((double)(rand() % 200) - 100.0) / 10.0;
+            M[i][j] = ((float)(rand() % 200) - 100.0f) / 10.0f;
         }
     }
 }
@@ -26,8 +26,8 @@ static inline int min_int(int a, int b) {
 /**
  * Multiplicação com particionamento em blocos (Tiling / Blocking).
  */
-void mult_tiling(double A[N][N], double B[N][N], double C[N][N]) {
-    memset(C, 0, sizeof(double) * N * N);
+void mult_tiling(float A[N][N], float B[N][N], float C[N][N]) {
+    memset(C, 0, sizeof(float) * N * N);
 
     for (int ii = 0; ii < N; ii += BLOCK) {
         int i_max = min_int(ii + BLOCK, N);
@@ -40,7 +40,7 @@ void mult_tiling(double A[N][N], double B[N][N], double C[N][N]) {
 
                 for (int i = ii; i < i_max; i++) {
                     for (int j = jj; j < j_max; j++) {
-                        double soma = C[i][j];
+                        float soma = C[i][j];
                         for (int k = kk; k < k_max; k++) {
                             soma += A[i][k] * B[k][j];
                         }
@@ -55,7 +55,7 @@ void mult_tiling(double A[N][N], double B[N][N], double C[N][N]) {
 /**
  * Exporta a matriz para arquivo binário bruto (.bin).
  */
-void salvar_matriz(const char *nome, double M[N][N]) {
+void salvar_matriz(const char *nome, float M[N][N]) {
     char caminho[128];
     snprintf(caminho, sizeof(caminho), "bin_c/%s", nome);
     FILE *arquivo = fopen(caminho, "wb");
@@ -70,7 +70,7 @@ void salvar_matriz(const char *nome, double M[N][N]) {
         exit(1);
     }
 
-    fwrite(M, sizeof(double), N * N, arquivo);
+    fwrite(M, sizeof(float), N * N, arquivo);
     fclose(arquivo);
 }
 
@@ -83,9 +83,9 @@ int main(int argc, char *argv[]) {
         seedB = (unsigned int)atoi(argv[2]);
     }
 
-    static double A[N][N];
-    static double B[N][N];
-    static double C[N][N];
+    static float A[N][N];
+    static float B[N][N];
+    static float C[N][N];
 
     // 1. Gera entradas com seeds determinísticas
     gerar_matriz_aleatoria(A, seedA);

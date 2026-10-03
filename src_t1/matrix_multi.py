@@ -11,9 +11,15 @@ DIR_BIN_PY = DIR_SRC / "bin_python"
 
 def processar_matriz(quiet: bool = False, dim: int = None):
     """
-    Carrega bin_c/A.bin e bin_c/B.bin, computa C = A @ B com NumPy
+    Carrega bin_c/A.bin e bin_c/B.bin (gerados pelo executável C),
+    computa C = A @ B com NumPy em precisão simples (float32)
     e grava a matriz de referência em bin_python/C.bin.
-    Determina a dimensão N dinamicamente pelo tamanho dos binários.
+
+    CONFIRMAÇÃO DE FLUXO E INTEGRIDADE:
+    - O Python lê EXCLUSIVAMENTE os arquivos A.bin e B.bin gravados pelo executável C.
+    - O Python NÃO gera entradas próprias nem dados pseudo-aleatórios independentes.
+    - O cálculo de referência C_numpy = A @ B é realizado sobre exatamente os mesmos dados.
+    - Tipo de dado: IEEE 754 float32 (single precision, 4 bytes por elemento).
     """
     DIR_BIN_PY.mkdir(parents=True, exist_ok=True)
     caminho_a = DIR_BIN_C / "A.bin"
@@ -31,22 +37,22 @@ def processar_matriz(quiet: bool = False, dim: int = None):
         n_matriz = dim
     else:
         tamanho_bytes = caminho_a.stat().st_size
-        n_elementos = tamanho_bytes // 8  # 8 bytes por float64
+        n_elementos = tamanho_bytes // 4  # 4 bytes por float32
         n_matriz = math.isqrt(n_elementos)
         if n_matriz * n_matriz != n_elementos:
             raise ValueError(
                 f"Tamanho do arquivo {caminho_a.name} ({tamanho_bytes} bytes) "
-                "não corresponde a uma matriz quadrada float64 válida."
+                "não corresponde a uma matriz quadrada float32 válida."
             )
 
-    # 2. Carrega as entradas geradas pelo C
-    A = np.fromfile(caminho_a, dtype=np.float64).reshape((n_matriz, n_matriz))
-    B = np.fromfile(caminho_b, dtype=np.float64).reshape((n_matriz, n_matriz))
+    # 2. Carrega as entradas geradas pelo C (garantindo consumo dos mesmos dados gerados pelo C)
+    A = np.fromfile(caminho_a, dtype=np.float32).reshape((n_matriz, n_matriz))
+    B = np.fromfile(caminho_b, dtype=np.float32).reshape((n_matriz, n_matriz))
 
-    # 3. Computa a multiplicação de referência via NumPy
-    C = A @ B
+    # 3. Computa a multiplicação de referência via NumPy (float32)
+    C = (A @ B).astype(np.float32)
 
-    # 4. Exporta a matriz resultante em formato binário bruto (.bin)
+    # 4. Exporta a matriz resultante em formato binário bruto (.bin) float32
     C.tofile(caminho_c)
 
     if not quiet:
