@@ -43,8 +43,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static float C[N][N];
-
+/* C e computada via Tile Streaming em bloco de 256 bytes dentro de multi_tiling.c */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -88,16 +87,33 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  /* USER CODE BEGIN 2 */
-  multi_tiling(A, B, C);
+/* USER CODE BEGIN 2 */
+  /* Sinaliza inicio piscando 3 vezes */
+  for (int i = 0; i < 6; i++) {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_Delay(100);
+  }
 
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+  /* Executa a multiplicacao em streaming e a validacao online */
+  multi_tiling_streaming_bist();
+
+  /* Se aprovado (TEST_PASSED), mantem o LED aceso fixo continuo (Blue Pill: LOW = aceso) */
+  if (g_report.status == TEST_PASSED) {
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+  } else {
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    /* Se tiver falhado, pisca lentamente como alerta de erro */
+    if (g_report.status == TEST_FAILED) {
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+      HAL_Delay(500);
+    }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
