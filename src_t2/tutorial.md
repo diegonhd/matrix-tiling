@@ -1,18 +1,21 @@
-# Guia Passo a Passo: Configuração e Execução no STM32CubeIDE (T2)
+# Módulo 1: Setup da Arquitetura e Validação Base no STM32CubeIDE (T2)
 
-> **Documento Tutorial Prático**  
+> **Documento Tutorial Prático — Módulo 1 [CONCLUÍDO E VALIDADO COM SUCESSO NA PLACA]**  
 > Projeto: Multiplicação de Matrizes com Tiling e Tile Streaming em Microcontrolador com Restrição Severa de Memória (8 KB SRAM).  
-> Plataformas: **STM32F103C8T6** (Bancada de desenvolvimento com SRAM limitada) $\rightarrow$ **STM32F030R8T6** (Alvo final).
+> Plataformas: **STM32F103C8T6** (Bancada com SRAM limitada a 8 KB) $\rightarrow$ **STM32F030R8T6** (Alvo final).
 
 ---
 
-## 1. Visão Geral do Fluxo
+## 1. Visão Geral do Módulo 1
 
-Este tutorial orienta a configuração do projeto do zero no **STM32CubeIDE**, aplicando todas as restrições da atividade T2:
-1. Configuração do arquivo gráfico **`.ioc`** (GPIO para LED de status, Debug SWD e Clock HSI).
-2. Travamento do Linker Script para **8 KB de SRAM** (na STM32F103).
-3. Integração do código modular (`test_data.h`, `multi_tiling.h`, `multi_tiling.c` e `main.c`).
-4. Demonstração prática **sem UART**: visualização via **LED físico** e pela ferramenta **Live Expressions** com ST-Link.
+Este módulo estabelece a fundação do projeto e comprova o funcionamento da arquitetura no **STM32CubeIDE**:
+1. Configuração do arquivo gráfico **`.ioc`** (GPIO de sinalização para LED, Debug SWD e Clock HSI).
+2. Travamento do Linker Script para **8 KB de SRAM** (emulação fiel da STM32F030).
+3. Implementação do algoritmo com **Tile Streaming** (buffer de apenas 256 bytes na SRAM).
+4. Procedimento de teste e validação autônoma (BIST) com **Zero UART**, inspecionado com sucesso via **Live Expressions** e **LED de hardware**.
+
+> [!NOTE]
+> **Status:** Módulo 1 testado fisicamente na placa STM32F103C8T6 com sucesso comprovado: todos os 2025 elementos foram processados, o erro absoluto foi nulo/inferior a $10^{-2}$ e o status convergiu para `TEST_PASSED (2)` com LED aceso contínuo.
 
 ---
 
