@@ -139,18 +139,6 @@ Com o **Tile Streaming**:
        - Se `status == TEST_FAILED`: LED pisca lento (1 Hz).
    - **Vantagem Acadêmica:** Gasta apenas alguns bytes em RAM, valida **100% dos 2025 elementos** de $C$ e fornece uma tela clara de auditoria no CubeIDE.
 
-2. **Solução 2: Validação por Amostragem de Células Críticas (Spot Checking)**
-   - O script Python seleciona pontos estratégicos da matriz $C$:
-     - Os 4 cantos: $C[0][0]$, $C[0][N-1]$, $C[N-1][0]$, $C[N-1][N-1]$.
-     - O centro: $C[N/2][N/2]$.
-     - Células nas bordas dos blocos (para validar o tratamento de bordas com $N=45$ e $BLOCK=8$).
-   - O microcontrolador armazena apenas esses pontos pré-definidos e valida suas magnitudes.
-   - **Vantagem:** Muito fácil de inspecionar visualmente na janela Live Expressions do STM32CubeIDE.
-
-3. **Solução 3: Inspeção de Bloco em Live Expressions com Breakpoint**
-   - Como o ST-Link está conectado, o código pode salvar um bloco específico de interesse (ex: o primeiro bloco $8 \times 8$) em um vetor `float debug_block[8][8]` em RAM.
-   - O usuário coloca um breakpoint ou observa no Live Watch e compara diretamente com a matriz esperada gerada pelo Python.
-
 ---
 
 ## 3. Gestão de Memória: Mapa Comparativo
@@ -175,7 +163,7 @@ Demonstração visual imediata na placa física sem necessidade de computador co
 - **Estado 2 (Sucesso / PASS):** LED permanece **ACESO FIXO** contínuo após o término, indicando que o BIST calculou todos os blocos e o checksum conferiu com a referência do Python.
 - **Estado 3 (Falha / FAIL):** LED pisca lentamente a 1 Hz (ou padrão de erro), indicando divergência numérica.
 
-### 4.2 Estratégia 3: Depuração e Inspeção Não-Intrusiva no STM32CubeIDE (Live Expressions)
+### 4.2 Estratégia 2: Depuração e Inspeção Não-Intrusiva no STM32CubeIDE (Live Expressions)
 Demonstração técnica com a placa conectada via cabo USB do ST-Link:
 1. No STM32CubeIDE, inicia-se a sessão de depuração e abre-se a janela **Live Expressions**.
 2. Adicionam-se as variáveis globais de instrumentação:

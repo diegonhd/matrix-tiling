@@ -16,6 +16,8 @@ import numpy as np
 
 N = 45
 DIR_INPUT = Path(__file__).resolve().parent / "input_matrix"
+if not DIR_INPUT.exists():
+    DIR_INPUT = Path(__file__).resolve().parent.parent / "src_t1" / "input_matrix"
 
 
 def format_float(v: float) -> str:
@@ -45,12 +47,16 @@ def main():
 
     A = np.fromfile(caminho_a, dtype=np.float32).reshape((N, N))
     B = np.fromfile(caminho_b, dtype=np.float32).reshape((N, N))
+    C_esperado = np.matmul(A, B, dtype=np.float32)
+    checksum_esperado = float(np.sum(C_esperado, dtype=np.float32))
 
-    saida = Path("test_data.h")
+    saida = Path(__file__).resolve().parent / "test_data.h"
     conteudo = (
         "#ifndef TEST_DATA_H\n"
         "#define TEST_DATA_H\n\n"
         f"#define N {N}\n\n"
+        f"/* Checksum esperado (Soma de todos os elementos de C em float32) */\n"
+        f"#define CHECKSUM_SUM_EXPECTED {format_float(checksum_esperado)}\n\n"
         f"/* Gerado a partir de A_{teste}.bin e B_{teste}.bin (N={N}) */\n\n"
         f"{dump('A', A)}\n\n"
         f"{dump('B', B)}\n\n"
@@ -58,7 +64,7 @@ def main():
     )
 
     saida.write_text(conteudo, encoding="utf-8")
-    print(f"OK: test_data.h gerado com o teste '{teste}' (N={N}).")
+    print(f"OK: test_data.h gerado com o teste '{teste}' (N={N}, Checksum={checksum_esperado:.6f}).")
 
 
 if __name__ == "__main__":
