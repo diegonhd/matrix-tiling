@@ -4,7 +4,9 @@
 #define N 45
 
 /* Checksum esperado (Soma de todos os elementos de C em float32) */
-#define CHECKSUM_SUM_EXPECTED 11019.998f
+#define CHECKSUM_SUM_EXPECTED         11019.998f
+#define CHECKSUM_ZEROS_EXPECTED       0.0f
+#define CHECKSUM_IDENTIDADE_EXPECTED  -82.699997f
 
 /* Gerado a partir de A_1.bin e B_1.bin (N=45) */
 

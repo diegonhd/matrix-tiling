@@ -341,3 +341,30 @@ while (1)
   - `checksum_calculated` e `checksum_expected` exibem valores idênticos.
   - `absolute_error` exibe valor próximo a `0.000000`.
   - `status` exibe **`TEST_PASSED (2)`**.
+
+---
+
+## 8. Módulo 2: Suíte de Múltiplos Testes Matemáticos (Multi-Test Suite)
+
+O **Módulo 2** enriquece a instrumentação e a avaliação da disciplina executando automaticamente três cenários matemáticos distintos sem estourar o limite de 64 KB de Flash nem os 8 KB de SRAM:
+
+### 8.1 Cenários Executados em Sequência:
+1. **Cenário 0 (`SCENARIO_ZEROS`):** Elemento Nulo da Álgebra Linear.
+   - Computa $A \times 0_{45 \times 45} = 0_{45 \times 45}$.
+   - **Checksum Esperado:** `0.000000f`.
+   - **Objetivo:** Prova que não há acúmulo de lixo de memória na SRAM e que o `memset` do buffer de bloco é executado estritamente em todas as iterações.
+2. **Cenário 1 (`SCENARIO_IDENTITY`):** Elemento Neutro da Multiplicação.
+   - Computa $A \times I_{45 \times 45} = A_{45 \times 45}$.
+   - **Checksum Esperado:** `-82.699997f` (exatamente a soma dos elementos da matriz $A$).
+   - **Objetivo:** Prova que a multiplicação preserva as coordenadas e a orientação linha/coluna sem rotações acidentais.
+3. **Cenário 2 (`SCENARIO_STANDARD_1`):** Multiplicação Geral Bipolar da T1.
+   - Computa $A_1 \times B_1$ utilizando os valores binários originais.
+   - **Checksum Esperado:** `11019.998f`.
+   - **Objetivo:** Validação com dados de teste reais da T1.
+
+### 8.2 Novos Campos para Acompanhamento no Live Expressions:
+Ao inspecionar `g_report` (ou adicionar individualmente):
+- `g_report.tests_passed_count`: Começa em `0` e incrementa sequencialmente até **`3`**.
+- `g_report.current_scenario`: Mostra o teste em execução (`0`, `1` ou `2`).
+- `g_report.status`: Converge para **`TEST_PASSED (2)`** apenas se os 3 testes passarem com sucesso.
+- **LED Físico:** Mantém-se aceso contínuo após a aprovação de todos os 3 testes.

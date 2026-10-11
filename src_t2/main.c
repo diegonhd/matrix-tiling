@@ -103,8 +103,8 @@ int main(void)
     HAL_Delay(100);
   }
 
-  /* Executa a multiplicacao em Tile Streaming e a validacao online (BIST) */
-  multi_tiling_streaming_bist();
+  /* Executa a suite completa de testes em Tile Streaming (Zeros -> Identidade -> Teste 1) */
+  multi_tiling_run_suite();
 
   /* Sinalizacao fisica pos-calculo */
   if (g_report.status == TEST_PASSED) {

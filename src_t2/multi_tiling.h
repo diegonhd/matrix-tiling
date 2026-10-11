@@ -28,17 +28,29 @@ typedef enum {
 } TestStatus_t;
 
 /**
+ * @brief Tipos de cenários de teste disponíveis na suíte.
+ */
+typedef enum {
+    SCENARIO_ZEROS      = 0, /**< Teste do Elemento Nulo: A * 0 = 0 */
+    SCENARIO_IDENTITY   = 1, /**< Teste do Elemento Neutro: A * I = A */
+    SCENARIO_STANDARD_1 = 2, /**< Teste Estatístico 1: A_1 * B_1 */
+    SCENARIO_COUNT      = 3  /**< Quantidade total de cenários */
+} TestScenario_t;
+
+/**
  * @brief Estrutura de instrumentação e relatório de validação (BIST).
  *
  * Mapeada em memória SRAM para inspeção direta em tempo real
  * através da janela 'Live Expressions' do STM32CubeIDE via ST-Link.
  */
 typedef struct {
-    volatile TestStatus_t status;              /**< Estado do teste (TEST_IDLE, RUNNING, PASSED, FAILED) */
-    volatile uint32_t     elements_processed;  /**< Contador incremental: vai de 0 até N*N (2025) */
-    volatile float        checksum_calculated; /**< Soma acumulada de todos os elementos C calculados */
-    volatile float        checksum_expected;   /**< Valor de referência oficial derivado do Python */
-    volatile float        absolute_error;      /**< Diferença absoluta (|calculado - esperado|) */
+    volatile TestStatus_t   status;              /**< Estado geral (TEST_IDLE, RUNNING, PASSED, FAILED) */
+    volatile TestScenario_t current_scenario;    /**< Cenário atualmente em execução (0, 1 ou 2) */
+    volatile uint32_t       tests_passed_count;  /**< Número de cenários aprovados com sucesso (0 a 3) */
+    volatile uint32_t       elements_processed;  /**< Contador incremental do teste atual (0 a 2025) */
+    volatile float          checksum_calculated; /**< Soma acumulada de todos os elementos C do teste atual */
+    volatile float          checksum_expected;   /**< Valor esperado oficial do teste atual */
+    volatile float          absolute_error;      /**< Diferença absoluta (|calculado - esperado|) */
 } ValidationReport_t;
 
 /**
@@ -47,11 +59,20 @@ typedef struct {
 extern volatile ValidationReport_t g_report;
 
 /**
- * @brief Executa a multiplicação de matrizes com técnica de Tiling e Tile Streaming.
+ * @brief Executa um cenário específico com Tile Streaming.
  *
- * Lê as matrizes A e B da memória Flash (.rodata), calcula a multiplicação bloco
- * a bloco utilizando apenas um buffer local de 256 bytes em SRAM, acumula
- * incrementalmente o checksum para o BIST e atualiza a struct g_report.
+ * @param scenario Cenário a ser executado (SCENARIO_ZEROS, SCENARIO_IDENTITY, SCENARIO_STANDARD_1).
+ * @return TestStatus_t TEST_PASSED se validado, TEST_FAILED caso contrário.
+ */
+TestStatus_t multi_tiling_run_scenario(TestScenario_t scenario);
+
+/**
+ * @brief Executa a suíte completa de múltiplos testes (Zeros -> Identidade -> Teste 1).
+ */
+void multi_tiling_run_suite(void);
+
+/**
+ * @brief Executa apenas o teste padrão (retrocompatibilidade com o Módulo 1).
  */
 void multi_tiling_streaming_bist(void);
 
