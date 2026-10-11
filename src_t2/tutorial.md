@@ -312,17 +312,23 @@ while (1)
 ### 7.2 Configurar a Janela Live Expressions (Demonstração Sem UART)
 1. No canto superior direito, certifique-se de que está na perspectiva **Debug**.
 2. No painel de abas superior direito, localize a aba **Live Expressions** (se não estiver aberta, vá em **Window $\rightarrow$ Show View $\rightarrow$ Live Expressions**).
-3. Clique em **Add new expression** e digite:
-   ```text
-   g_report
-   ```
-4. Expanda a variável clicando na setinha ao lado. Você verá os seguintes campos:
-   - `status`
-   - `elements_processed`
-   - `checksum_calculated`
-   - `checksum_expected`
-   - `absolute_error`
-5. Pressione **Resume (F8)** para iniciar a execução normal.
+3. Na coluna **Expression**, dê um duplo clique em **`<Enter new expression>`** (ou clique no ícone **+**).
+4. Digite apenas o nome da variável:
+   `g_report`
+   *(Atenção: digite exatamente a palavra `g_report`, sem crases, sem aspas e sem quebras de linha).*
+5. Pressione **Enter**. A variável aparecerá na tabela.
+6. Clique na setinha `>` ao lado de `g_report` para expandir e ver os campos internos (`status`, `elements_processed`, `checksum_calculated`, etc.).
+
+> [!TIP]
+> **Alternativa (adicionar os campos diretamente um por um):**  
+> Se preferir ver cada variável em uma linha dedicada sem precisar expandir a struct, digite cada uma separadamente:
+> - `g_report.status`
+> - `g_report.elements_processed`
+> - `g_report.checksum_calculated`
+> - `g_report.checksum_expected`
+> - `g_report.absolute_error`
+
+7. Pressione **Resume (F8)** para iniciar a execução normal.
 
 ### 7.3 Resultados Esperados na Demonstração:
 - **No Hardware (LED):**
