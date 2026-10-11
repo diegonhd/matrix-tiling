@@ -4,9 +4,7 @@
 #include <time.h>
 #include <stdbool.h>
 
-#ifndef N
-#define N 45          // Tamanho da matriz (bate o requisito de ~2000 elementos: 45*45=2025)
-#endif
+#define N 45          // Tamanho fixo da matriz (N=45: 45*45 = 2025 elementos em float32)
 #define BLOCK 8        // Tamanho do bloco (parametrizável: testar 8, 16, etc.)
 
 
@@ -83,7 +81,7 @@ void mult_tiling_buffers(const float A[N][N], const float B[N][N], float C[N][N]
             // então para que a leitura seja rápida, o laço mais interno deve iterar sobre as colunas
 
             for (int k = 0; k < bk; k++) 
-                for (int j = 0; k < bj; j++)
+                for (int j = 0; j < bj; j++)
                     blocoB[k][j] = B[kk + k][jj + j];
             // a mesma logica; os laços são "invertidos" pois o iterado j representa as colunas assim como bj representa a borda das colunas
 
