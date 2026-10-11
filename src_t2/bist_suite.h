@@ -4,6 +4,15 @@
 #include <stdint.h>
 #include "test_data.h"
 
+/* Fallback de seguranca caso o test_data.h no CubeIDE ainda seja a versao antiga */
+#ifndef CHECKSUM_ZEROS_EXPECTED
+#define CHECKSUM_ZEROS_EXPECTED       0.0f
+#endif
+
+#ifndef CHECKSUM_IDENTIDADE_EXPECTED
+#define CHECKSUM_IDENTIDADE_EXPECTED  -82.699997f
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
