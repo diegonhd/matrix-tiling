@@ -21,8 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "multi_tiling.h"
-#include "test_data.h"
+#include "bist_suite.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -103,8 +102,8 @@ int main(void)
     HAL_Delay(100);
   }
 
-  /* Executa a suite completa de testes em Tile Streaming (Zeros -> Identidade -> Teste 1) */
-  multi_tiling_run_suite();
+  /* Executa a suite de testes BIST em Tile Streaming (Zeros -> Identidade -> Teste 1) */
+  bist_run_suite();
 
   /* Sinalizacao fisica pos-calculo */
   if (g_report.status == TEST_PASSED) {

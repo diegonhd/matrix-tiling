@@ -2,79 +2,61 @@
 #define MULTI_TILING_H
 
 #include <stdint.h>
-#include "test_data.h"
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*
- * Dimensão do bloco para Tiling.
- * BLOCK = 8 gera sub-blocos 8x8 de floats (64 elementos * 4 bytes = 256 bytes).
- * Cabe confortavelmente na SRAM com sobra massiva para o stack.
- */
+/* Dimensão fixada da matriz (N=45) */
+#ifndef N
+#define N 45
+#endif
+
+/* Dimensão do bloco de particionamento (BLOCK=8: sub-blocos 8x8 consomem 256B) */
 #ifndef BLOCK
 #define BLOCK 8
 #endif
 
 /**
- * @brief Estados possíveis da execução do teste embarcado.
+ * @brief Assinatura da função de acesso a elementos da matriz B (permite matrizes reais ou virtuais).
  */
-typedef enum {
-    TEST_IDLE    = 0,  /**< Inicializado, aguardando início */
-    TEST_RUNNING = 1,  /**< Executando computação e streaming de blocos */
-    TEST_PASSED  = 2,  /**< Concluído com sucesso (checksum verificado dentro da tolerância) */
-    TEST_FAILED  = 3   /**< Concluído com falha (divergência numérica ou elementos faltantes) */
-} TestStatus_t;
+typedef float (*b_getter_fn_t)(int k, int j, const void *ctx);
 
 /**
- * @brief Tipos de cenários de teste disponíveis na suíte.
- */
-typedef enum {
-    SCENARIO_ZEROS      = 0, /**< Teste do Elemento Nulo: A * 0 = 0 */
-    SCENARIO_IDENTITY   = 1, /**< Teste do Elemento Neutro: A * I = A */
-    SCENARIO_STANDARD_1 = 2, /**< Teste Estatístico 1: A_1 * B_1 */
-    SCENARIO_COUNT      = 3  /**< Quantidade total de cenários */
-} TestScenario_t;
-
-/**
- * @brief Estrutura de instrumentação e relatório de validação (BIST).
+ * @brief Assinatura do callback de consumo de cada bloco C calculado.
  *
- * Mapeada em memória SRAM para inspeção direta em tempo real
- * através da janela 'Live Expressions' do STM32CubeIDE via ST-Link.
- */
-typedef struct {
-    volatile TestStatus_t   status;              /**< Estado geral (TEST_IDLE, RUNNING, PASSED, FAILED) */
-    volatile TestScenario_t current_scenario;    /**< Cenário atualmente em execução (0, 1 ou 2) */
-    volatile uint32_t       tests_passed_count;  /**< Número de cenários aprovados com sucesso (0 a 3) */
-    volatile uint32_t       elements_processed;  /**< Contador incremental do teste atual (0 a 2025) */
-    volatile float          checksum_calculated; /**< Soma acumulada de todos os elementos C do teste atual */
-    volatile float          checksum_expected;   /**< Valor esperado oficial do teste atual */
-    volatile float          absolute_error;      /**< Diferença absoluta (|calculado - esperado|) */
-} ValidationReport_t;
-
-/**
- * @brief Instância global pública do relatório de validação.
- */
-extern volatile ValidationReport_t g_report;
-
-/**
- * @brief Executa um cenário específico com Tile Streaming.
+ * Chamado assim que um sub-bloco de coordenadas (ii, jj) e dimensões bi x bj
+ * é completamente finalizado.
  *
- * @param scenario Cenário a ser executado (SCENARIO_ZEROS, SCENARIO_IDENTITY, SCENARIO_STANDARD_1).
- * @return TestStatus_t TEST_PASSED se validado, TEST_FAILED caso contrário.
+ * @param ii Coordenada vertical inicial do bloco em C.
+ * @param jj Coordenada horizontal inicial do bloco em C.
+ * @param bi Altura efetiva do bloco atual (até BLOCK).
+ * @param bj Largura efetiva do bloco atual (até BLOCK).
+ * @param bloco_C Ponteiro para a matriz local de bloco float[BLOCK][BLOCK].
+ * @param user_data Ponteiro opcional de contexto do usuário/validador.
  */
-TestStatus_t multi_tiling_run_scenario(TestScenario_t scenario);
+typedef void (*tile_consumer_fn_t)(int ii, int jj, int bi, int bj,
+                                   const float bloco_C[BLOCK][BLOCK],
+                                   void *user_data);
 
 /**
- * @brief Executa a suíte completa de múltiplos testes (Zeros -> Identidade -> Teste 1).
+ * @brief Executa a multiplicação A x B com particionamento em blocos e Tile Streaming.
+ *
+ * Algoritmo matemático puro e independente de plataforma. Não realiza alocação dinâmica
+ * e consome apenas 256 bytes de buffer de bloco em SRAM.
+ *
+ * @param A Matriz de entrada A (armazenada em Flash ou RAM).
+ * @param b_getter Função para obtenção de cada elemento de B[k][j].
+ * @param b_ctx Contexto repassado à função b_getter.
+ * @param consumer Callback invocado ao término de cada bloco para consumo/validação.
+ * @param consumer_ctx Contexto repassado ao callback consumer.
  */
-void multi_tiling_run_suite(void);
-
-/**
- * @brief Executa apenas o teste padrão (retrocompatibilidade com o Módulo 1).
- */
-void multi_tiling_streaming_bist(void);
+void multi_tiling_compute_stream(const float A[N][N],
+                                 b_getter_fn_t b_getter,
+                                 const void *b_ctx,
+                                 tile_consumer_fn_t consumer,
+                                 void *consumer_ctx);
 
 #ifdef __cplusplus
 }

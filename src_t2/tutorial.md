@@ -108,18 +108,20 @@ Como você está usando a STM32F103C8T6 (que fisicamente possui 20 KB de SRAM), 
 
 ## 5. Passo 4: Estruturação dos Arquivos no Projeto
 
-Para atender à nota de **clareza e reuso (10%)**, o código deve ser desacoplado em módulos:
+Para atender à nota de **clareza e reuso (10%)**, o código foi completamente desacoplado: o **motor de cálculo matemático** não possui qualquer dependência de teste, enquanto a **suíte de auditoria (BIST)** gerencia os cenários e a validação:
 
 ```text
 seu_projeto/
 ├── Core/
 │   ├── Inc/
 │   │   ├── main.h
-│   │   ├── multi_tiling.h      <-- Declarações do motor de Tiling e struct de relatório
-│   │   └── test_data.h         <-- Matrizes A e B em Flash e checksum esperado
+│   │   ├── multi_tiling.h      <-- Motor matemático puro (interface de Tile Streaming)
+│   │   ├── bist_suite.h        <-- Módulo de testes: cenários e struct de relatório g_report
+│   │   └── test_data.h         <-- Matrizes A e B em Flash e checksums esperados
 │   └── Src/
-│       ├── main.c              <-- Fluxo de execução, controle de LED e chamadas
-│       └── multi_tiling.c      <-- Implementação do Tiling e BIST
+│       ├── main.c              <-- Ponto de entrada: inicializa HAL e dispara bist_run_suite()
+│       ├── multi_tiling.c      <-- Motor matemático puro de Tiling (256B buffer)
+│       └── bist_suite.c        <-- Implementação da suíte de testes e acumulação online
 ```
 
 ### 5.1 Gerar os Dados de Teste (`test_data.h`)
