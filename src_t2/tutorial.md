@@ -371,34 +371,27 @@ Ao inspecionar `g_report` (ou adicionar individualmente):
 - `g_report.status`: Converge para **`TEST_PASSED (2)`** apenas se os 3 testes passarem com sucesso.
 - **LED Físico:** Mantém-se aceso contínuo após a aprovação de todos os 3 testes.
 
-### 8.3 Nova Árvore de Diretórios e Modularização no STM32CubeIDE:
-Para atender ao critério de **clareza e reuso**, a árvore de código do projeto no painel *Project Explorer* do STM32CubeIDE deve ficar organizada com as seguintes responsabilidades estritamente separadas:
+### 8.4 Roteiro de Demonstração do Módulo 2 (Para Apresentação de 8 Minutos):
+A demonstração da nova suíte combina a **inspeção ao vivo na tela** (Live Expressions) com o **comportamento na placa física** (LED):
 
-```text
-matrix_tiling_t2/
-├── Core/
-│   ├── Inc/
-│   │   ├── main.h             <-- Definições do HAL, pinos de GPIO e protótipos
-│   │   ├── multi_tiling.h     <-- MOTOR PURO: Interface da multiplicação e callbacks de streaming
-│   │   ├── bist_suite.h       <-- MÓDULO DE TESTES: Declaração dos cenários e struct g_report
-│   │   └── test_data.h        <-- DADOS: Matrizes A e B em Flash e checksums de referência
-│   └── Src/
-│       ├── main.c             <-- PONTO DE ENTRADA: Inicializa HAL/GPIO e invoca bist_run_suite()
-│       ├── multi_tiling.c     <-- MOTOR PURO: Algoritmo de Tiling com buffer local de 256B
-│       ├── bist_suite.c       <-- MÓDULO DE TESTES: Implementa a suíte, auditoria e callbacks
-│       ├── stm32f1xx_it.c     <-- Handlers de interrupção padrão do STM32
-│       └── system_stm32f1xx.c <-- Inicialização do sistema e clocks
-└── STM32F103C8TX_FLASH.ld     <-- Linker Script com RAM travada em 8 KB
-```
-
-#### Resumo das Responsabilidades da Nova Arquitetura:
-1. **`multi_tiling.h` / `multi_tiling.c` (Motor Matemático Reusável):**
-   - Não contém nenhuma referência a `g_report`, `TEST_PASSED`, `TEST_FAILED` ou código de validação.
-   - Fornece a função limpa `multi_tiling_compute_stream()`, que entrega cada bloco $8 \times 8$ calculado a um callback consumidor genérico.
-2. **`bist_suite.h` / `bist_suite.c` (Framework de Auditoria Embarcada):**
-   - Implementa o callback que consome os blocos e acumula o checksum.
-   - Fornece a lógica sequencial dos 3 cenários (Zeros $\rightarrow$ Identidade $\rightarrow$ Teste 1).
-   - Gerencia exclusivamente a struct `g_report` visível no *Live Expressions*.
-3. **`main.c` (Fluxo de Execução Enxuto):**
-   - Depende apenas de `#include "bist_suite.h"`.
-   - Controla a sinalização do LED de status e dispara `bist_run_suite()`.
+1. **Preparação no STM32CubeIDE:**
+   - Na aba **Live Expressions**, adicione `g_report` (e expanda na setinha `>`).
+   - Você verá os novos campos: `tests_passed_count`, `current_scenario`, `elements_processed`, `checksum_calculated` e `status`.
+2. **Execução:**
+   - Inicie a depuração (**F11**) e pressione **Resume (F8)**.
+3. **O que observar e explicar ao avaliador durante a execução:**
+   - **Fase 1 (Cenário Zeros):**  
+     `current_scenario` está em `0`. O contador `elements_processed` vai até `2025`.  
+     `checksum_calculated` converge para `0.000000`.  
+     *Explicação ao avaliador:* "O primeiro teste comprova que o buffer de 256 bytes em SRAM é zerado rigorosamente e não há lixo de memória residual."
+   - **Fase 2 (Cenário Identidade):**  
+     `current_scenario` avança para `1`. `tests_passed_count` sobe para `1`.  
+     `checksum_calculated` converge para `-82.699997` (exatamente a soma de $A$).  
+     *Explicação ao avaliador:* "O segundo teste valida a propriedade $A \times I = A$, provando que os índices de linhas e colunas e o particionamento em blocos preservam a matriz sem distorções."
+   - **Fase 3 (Cenário 1 Geral):**  
+     `current_scenario` avança para `2`. `tests_passed_count` sobe para `2`.  
+     `checksum_calculated` converge para `11019.998`.  
+     *Explicação ao avaliador:* "O terceiro teste computa a multiplicação geral com dados bipolares da T1."
+4. **Fechamento e Sinalização Final:**
+   - No Live Expressions: `tests_passed_count` atinge **`3`**, `absolute_error` fica próximo de zero e `status` converge para **`TEST_PASSED (2)`**.
+   - Na placa física: O LED de status (**`PC13`** na Blue Pill / **`PA5`** na Nucleo) acende **fixo contínuo**, confirmando o sucesso da suíte de testes completa.
