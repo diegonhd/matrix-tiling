@@ -370,3 +370,35 @@ Ao inspecionar `g_report` (ou adicionar individualmente):
 - `g_report.current_scenario`: Mostra o teste em execução (`0`, `1` ou `2`).
 - `g_report.status`: Converge para **`TEST_PASSED (2)`** apenas se os 3 testes passarem com sucesso.
 - **LED Físico:** Mantém-se aceso contínuo após a aprovação de todos os 3 testes.
+
+### 8.3 Nova Árvore de Diretórios e Modularização no STM32CubeIDE:
+Para atender ao critério de **clareza e reuso**, a árvore de código do projeto no painel *Project Explorer* do STM32CubeIDE deve ficar organizada com as seguintes responsabilidades estritamente separadas:
+
+```text
+matrix_tiling_t2/
+├── Core/
+│   ├── Inc/
+│   │   ├── main.h             <-- Definições do HAL, pinos de GPIO e protótipos
+│   │   ├── multi_tiling.h     <-- MOTOR PURO: Interface da multiplicação e callbacks de streaming
+│   │   ├── bist_suite.h       <-- MÓDULO DE TESTES: Declaração dos cenários e struct g_report
+│   │   └── test_data.h        <-- DADOS: Matrizes A e B em Flash e checksums de referência
+│   └── Src/
+│       ├── main.c             <-- PONTO DE ENTRADA: Inicializa HAL/GPIO e invoca bist_run_suite()
+│       ├── multi_tiling.c     <-- MOTOR PURO: Algoritmo de Tiling com buffer local de 256B
+│       ├── bist_suite.c       <-- MÓDULO DE TESTES: Implementa a suíte, auditoria e callbacks
+│       ├── stm32f1xx_it.c     <-- Handlers de interrupção padrão do STM32
+│       └── system_stm32f1xx.c <-- Inicialização do sistema e clocks
+└── STM32F103C8TX_FLASH.ld     <-- Linker Script com RAM travada em 8 KB
+```
+
+#### Resumo das Responsabilidades da Nova Arquitetura:
+1. **`multi_tiling.h` / `multi_tiling.c` (Motor Matemático Reusável):**
+   - Não contém nenhuma referência a `g_report`, `TEST_PASSED`, `TEST_FAILED` ou código de validação.
+   - Fornece a função limpa `multi_tiling_compute_stream()`, que entrega cada bloco $8 \times 8$ calculado a um callback consumidor genérico.
+2. **`bist_suite.h` / `bist_suite.c` (Framework de Auditoria Embarcada):**
+   - Implementa o callback que consome os blocos e acumula o checksum.
+   - Fornece a lógica sequencial dos 3 cenários (Zeros $\rightarrow$ Identidade $\rightarrow$ Teste 1).
+   - Gerencia exclusivamente a struct `g_report` visível no *Live Expressions*.
+3. **`main.c` (Fluxo de Execução Enxuto):**
+   - Depende apenas de `#include "bist_suite.h"`.
+   - Controla a sinalização do LED de status e dispara `bist_run_suite()`.
