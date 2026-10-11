@@ -32,7 +32,16 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+/* Fallback caso as constantes nao estejam definidas pelo STM32CubeMX (.ioc) */
+#ifndef LED_STATUS_Pin
+  #if defined(STM32F103xB)
+    #define LED_STATUS_Pin       GPIO_PIN_13
+    #define LED_STATUS_GPIO_Port GPIOC
+  #else
+    #define LED_STATUS_Pin       GPIO_PIN_5
+    #define LED_STATUS_GPIO_Port GPIOA
+  #endif
+#endif
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -88,20 +97,30 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
 /* USER CODE BEGIN 2 */
-  /* Sinaliza inicio piscando 3 vezes */
+  /* Pisca rapido 3 vezes indicando inicio do sistema */
   for (int i = 0; i < 6; i++) {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    HAL_GPIO_TogglePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin);
     HAL_Delay(100);
   }
 
-  /* Executa a multiplicacao em streaming e a validacao online */
+  /* Executa a multiplicacao em Tile Streaming e a validacao online (BIST) */
   multi_tiling_streaming_bist();
 
-  /* Se aprovado (TEST_PASSED), mantem o LED aceso fixo continuo (Blue Pill: LOW = aceso) */
+  /* Sinalizacao fisica pos-calculo */
   if (g_report.status == TEST_PASSED) {
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+    /* SUCESSO: Mantem o LED aceso fixo continuo */
+    #if defined(STM32F103xB)
+      HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_RESET); /* Blue Pill: LOW = aceso */
+    #else
+      HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);   /* Nucleo: HIGH = aceso */
+    #endif
   } else {
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+    /* FALHA: Apaga inicialmente antes de entrar no pisca lento */
+    #if defined(STM32F103xB)
+      HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_SET);   /* Blue Pill: HIGH = apagado */
+    #else
+      HAL_GPIO_WritePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin, GPIO_PIN_RESET); /* Nucleo: LOW = apagado */
+    #endif
   }
   /* USER CODE END 2 */
 
@@ -109,9 +128,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* Se tiver falhado, pisca lentamente como alerta de erro */
+    /* Se tiver falhado, pisca lentamente (1 Hz) como alerta de erro numerico */
     if (g_report.status == TEST_FAILED) {
-      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+      HAL_GPIO_TogglePin(LED_STATUS_GPIO_Port, LED_STATUS_Pin);
       HAL_Delay(500);
     }
     /* USER CODE END WHILE */
