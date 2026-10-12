@@ -17,7 +17,7 @@ Portar o algoritmo de multiplicação de matrizes da T1 para uma plataforma de m
 2. **Ausência de FPU em Hardware:** Microcontroladores ARM Cortex-M0 e Cortex-M3 (como o STM32F030 e STM32F103) realizam operações em ponto flutuante IEEE 754 de 32 bits (`float32`) via emulação por software (`libgcc`), exigindo precisão numérica idêntica e sem discrepâncias de arredondamento.
 3. **Severa Restrição de Memória SRAM (8.192 bytes):**
    - Para matrizes $N = 45$ em `float32` (4 bytes por elemento):
-     $$\text{Tamanho de uma matriz} = 45 \times 45 \times 4 = 8.100\text{ bytes}$$
+     - Tamanho de uma matriz: $45 \times 45 \times 4 = 8.100\text{ bytes}$
    - Se as três matrizes ($A$, $B$, $C$) fossem alocadas em RAM: exigiriam $24.300\text{ bytes}$ (estouro imediato da SRAM).
    - Se apenas a matriz de saída $C$ fosse mantida em RAM: consumiria $8.100$ dos $8.192\text{ bytes}$ disponíveis (**98,8% da SRAM total**), sufocando a pilha de execução (*stack*) e levando a um *HardFault*.
 4. **Validação com Zero UART:** A validação e instrumentação de funcionamento não dependem de conversor USB-TTL ou terminal serial.
@@ -77,7 +77,7 @@ static const float A[N][N] = { ... };
 static const float B[N][N] = { ... };
 ```
 - Armazenadas diretamente na seção **`.rodata`** da Flash do microcontrolador.
-- Consomem $\approx 16{,}2\text{ KB}$ dos 64 KB de Flash disponíveis.
+- Consomem cerca de 16,2 KB dos 64 KB de Flash disponíveis.
 - **Custo de SRAM: 0 bytes**.
 
 ### 2.2 Saída $C$ via Tile Streaming (Buffer de 256 Bytes em SRAM)
@@ -98,7 +98,7 @@ static float bloco_C[BLOCK][BLOCK]; /* 8 x 8 floats = 256 bytes na SRAM (.bss) *
 | **Matriz B** | 8.100 B na Flash (`.rodata`) | 8.100 B na Flash (`.rodata`) |
 | **Saída C** | 8.100 B na SRAM (`.bss`) | **0 B** na SRAM |
 | **Buffer de Bloco C** | Inexistente | **256 B** na SRAM (`float[8][8]`) |
-| **SRAM Livre (de 8 KB)**| $\approx 92\text{ bytes}$ (**Risco de Crash / HardFault**) | **$> 7.500\text{ bytes}$** (**Folga total para Stack e RTOS**) |
+| **SRAM Livre (de 8 KB)**| cerca de 92 bytes (**Risco de Crash / HardFault**) | **mais de 7.500 bytes** (**Folga total para Stack e RTOS**) |
 
 ---
 
@@ -147,18 +147,13 @@ A suíte **BIST (*Built-In Self-Test*)** cobre 3 cenários de teste executados s
 
 1. **Cenário 0 (`SCENARIO_ZEROS`) — Elemento Nulo:**  
    Multiplica $A \times 0 = 0$. Valida se o acumulador e o motor zeram adequadamente os blocos.  
-   $\text{Checksum Esperado} = 0.0\text{f}$.
+   Checksum Esperado = `0.0f`.
 2. **Cenário 1 (`SCENARIO_IDENTITY`) — Elemento Neutro:**  
    Multiplica $A \times I = A$. Fornece dinamicamente a matriz identidade via getter virtual (`(k == j) ? 1.0f : 0.0f`). Valida a integridade das somas e produtos de cada linha e coluna.  
-   $\text{Checksum Esperado} = \sum A_{ij} = -82.699997\text{f}$.
+   Checksum Esperado = `-82.699997f`.
 3. **Cenário 2 (`SCENARIO_STANDARD_1`) — Multiplicação Geral da T1:**  
    Multiplica $A \times B$ com os dados reais importados da Tarefa 1.  
-   $\text{Checksum Esperado} = \sum C_{ij} = 2276.732422\text{f}$.
-
-### Critério de Aceitação Numérica
-Para cada cenário, o BIST verifica:
-$$\text{elementos processados} == 2025 \quad (45 \times 45)$$
-$$|\text{checksum\_calculado} - \text{checksum\_esperado}| < 10^{-2}$$
+   Checksum Esperado = `11019.998f`.
 
 ### Inspeção e Demonstração Prática
 
@@ -178,50 +173,64 @@ Conectando a placa via cabo ST-Link (SWD), a struct global `g_report` é monitor
 | `g_report.elements_processed` | `uint32_t` | Sobe de `0` até `2025` em cada cenário |
 | `g_report.checksum_calculated`| `float` | Checksum acumulado pelo algoritmo em tempo de execução |
 | `g_report.checksum_expected`  | `float` | Valor de referência gerado pelo Python |
-| `g_report.absolute_error`     | `float` | Diferença absoluta observada ($|C_{\text{calc}} - C_{\text{exp}}|$) |
-| `g_report.tolerance`          | `float` | **Tolerância máxima de aceitação visível em RAM** (`0.005f`) |
+| `g_report.absolute_error`     | `float` | Diferença absoluta observada: abs(C_calc - C_exp) |
+| `g_report.tolerance`          | `float` | **Tolerância analítica visível em RAM** (`0.005f`) |
 
 ---
 
 ## 6. Dedução Analítica da Tolerância e Resultados Reais de Bancada
 
 ### 6.1 Por que o Erro Absoluto foi escolhido como métrica primária?
-1. **Evita Indeterminação Matemática ($0/0$):** No Teste dos Zeros ($A \times 0 = 0$), o valor esperado é nulo. O erro relativo geraria divisão por zero ($\text{NaN}$), enquanto o erro absoluto é matematicamente limpo: $|0{,}0 - 0{,}0| = 0{,}0$.
+1. **Evita Indeterminação Matemática ($0/0$):** No Teste dos Zeros ($A \times 0 = 0$), o valor esperado é nulo. O erro relativo geraria divisão por zero (`NaN`), enquanto o erro absoluto é matematicamente limpo: $|0{,}0 - 0{,}0| = 0{,}0$.
 2. **Continuidade Metrológica com a Tarefa 1:** Na T1, o critério principal de aprovação dos 30 testes foi $\text{maior\_erro\_abs} \le \text{atol}$. Manter o erro absoluto na T2 garante alinhamento conceitual e clareza imediata na demonstração.
 3. **Inspeção Direta e Transparente no Live Expressions:** A variável `g_report.tolerance` fica visível lado a lado com `g_report.absolute_error`, permitindo ao avaliador constatar imediatamente que o erro do microcontrolador está confortavelmente contido no limite seguro.
 
 ### 6.2 Dedução Analítica da Tolerância de Aceitação ($\text{tolerance} = 5{,}0 \times 10^{-3}$)
 
-A definição da tolerância não foi empírica ou arbitrária, mas derivada diretamente do **Teorema do Limite Determinístico de Arredondamento para Multiplicação Matricial** de **Nicholas J. Higham** (*Accuracy and Stability of Numerical Algorithms*, SIAM, 2002) adaptado para redução cumulativa (Checksum):
+A definição da tolerância foi derivada do **Teorema do Limite Determinístico de Arredondamento para Multiplicação Matricial** de **Nicholas J. Higham** (*Accuracy and Stability of Numerical Algorithms*, SIAM, 2002) adaptado para redução cumulativa (Checksum):
 
 #### Passo 1: Parâmetros Físicos da Aritmética IEEE 754 (`float32`)
 - **Unidade de Arredondamento (*Unit Roundoff*):**  
   Para mantissa de 23 bits explícitos + 1 implícito ($p = 24$):
+
   $$u = 2^{-24} \approx 5{,}960464 \times 10^{-8}$$
+
 - **Constante Acumuladora de Higham ($\gamma_N$):**  
   Para o produto interno de dimensão $N = 45$:
+
   $$\gamma_{45} = \frac{45 \cdot u}{1 - 45 \cdot u} \approx 45 \cdot u \approx 45 \times (5{,}96 \times 10^{-8}) \approx 2{,}6822 \times 10^{-6}$$
 
 #### Passo 2: Limite Determinístico por Elemento Individual da Matriz
 Pelo teorema de Higham, para cada elemento $C_{ij} = \sum_{k=1}^{45} A_{ik} B_{kj}$:
+
 $$|\widehat{C}_{ij} - C_{ij}| \le \gamma_{45} (|A||B|)_{ij}$$
+
 Com entradas bipolares uniformes em $[-10{,}0, +10{,}0]$, a magnitude média de produto é $|A_{ik}||B_{kj}| \approx 5{,}0 \times 5{,}0 = 25{,}0$. Logo:
+
 $$(|A||B|)_{\text{médio}} \approx 45 \times 25{,}0 = 1125{,}0$$
+
 Ao comparar dois motores numéricos (C vs Python) sob a Desigualdade Triangular:
-$$|C_{\text{C}} - C_{\text{Py}}| \le 2 \cdot \gamma_{45} \cdot (|A||B|)_{\text{médio}} \approx 2 \times (2{,}6822 \times 10^{-6}) \times 1125{,}0 \approx \mathbf{6{,}035 \times 10^{-3}}$$
+
+$$|C_{\text{C}} - C_{\text{Py}}| \le 2 \cdot \gamma_{45} \cdot (|A||B|)_{\text{médio}} \approx 2 \times (2{,}6822 \times 10^{-6}) \times 1125{,}0 \approx 6{,}035 \times 10^{-3}$$
+
 *(Na Tarefa 1, adotou-se o filtro conservador de $\text{atol} = 1{,}0 \times 10^{-3} \approx \frac{1}{6}$ do limite médio).*
 
 #### Passo 3: Propagação de Erro no Checksum Acumulado (Soma de 2.025 Elementos)
-O Checksum é a soma de todos os $M = 2.025$ elementos ($45 \times 45$).
+O Checksum é a soma de todos os $M = 2.025$ elementos ($45 \times 45$).  
 Em uma soma de $M$ termos com reordenação de blocos no Tiling ($B=8$):
+
 1. **Modelo Estocástico de Arredondamento (Higham, Cap. 3):**  
    Os erros de arredondamento comportam-se como variáveis aleatórias de média zero com variância finita. O acúmulo do erro de soma escala com a raiz quadrada da quantidade de elementos ($\sqrt{M}$), e não linearmente ($M$):
+
    $$\sigma_{\text{soma}} \approx \sqrt{M} \times \sigma_{\text{elemento}} = \sqrt{2025} \times \sigma_{\text{elemento}} = 45 \times \sigma_{\text{elemento}}$$
+
 2. **Propagação do Erro Médio Observado:**  
-   Como o erro médio absoluto individual observado na T1 foi $\bar{E} \approx 1{,}5 \times 10^{-4}$ (desvio típico de $1$ a $2$ ULPs na escala média):
-   $$E_{\text{checksum}} \approx \sqrt{2025} \times 1{,}5 \times 10^{-4} \approx 45 \times (1{,}5 \times 10^{-4}) \approx \mathbf{6{,}75 \times 10^{-3}}$$
+   Como o erro médio absoluto individual observado na T1 foi $\bar{E} \approx 1{,}5 \times 10^{-4}$:
+
+   $$E_{\text{checksum}} \approx \sqrt{2025} \times (1{,}5 \times 10^{-4}) = 45 \times (1{,}5 \times 10^{-4}) \approx 6{,}75 \times 10^{-3}$$
+
 3. **Fixação da Tolerância de Projeto ($\text{tolerance} = 0{,}005\text{f}$):**  
-   Fixou-se $\mathbf{\text{g\_report.tolerance} = 0{,}005\text{f} \ (5{,}0 \times 10^{-3})}$:
+   Fixou-se **`g_report.tolerance = 0.005f`** ($5{,}0 \times 10^{-3}$):
    - **Fisicamente consistente:** Enquadra-se rigorosamente na ordem de magnitude da propagação de Higham ($\sim 6 \times 10^{-3}$).
    - **Cobre os desvios legítimos de bancada:** O pior caso real observado na placa foi $0{,}0029$, ficando aprovado com folga de $42\%$.
    - **Garante imunidade a falhas:** Rejeita qualquer anomalia de cálculo ou problema de memória, cujos erros gerariam desvios ordens de grandeza maiores ($\ge 0{,}1$).
@@ -230,13 +239,14 @@ Em uma soma de $M$ termos com reordenação de blocos no Tiling ($B=8$):
 
 | Cenário | Checksum Esperado | Checksum Calculado | Erro Absoluto (`absolute_error`) | Tolerância (`tolerance`) | Avaliação de Conformidade |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **0. Zeros ($A \times 0$)** | `0.0000000` | `0.0000000` | $\mathbf{0{,}0000000}$ | `0.005` | **Perfeito (Erro Zero)** |
-| **1. Identidade ($A \times I$)** | `-82.6999969` | `-82.6998291` | $\mathbf{0{,}0001678}$ | `0.005` | **Excelente (30x abaixo do teto)** |
-| **2. Geral T1 ($A \times B$)** | `11019.9980` | `11019.9951` | $\mathbf{0{,}0029000}$ | `0.005` | **Excelente (Aprovado com folga)** |
+| **0. Zeros ($A \times 0$)** | `0.0000000` | `0.0000000` | **`0.0000000`** | `0.005` | **Perfeito (Erro Zero)** |
+| **1. Identidade ($A \times I$)** | `-82.6999969` | `-82.6998291` | **`0.0001678`** | `0.005` | **Excelente (30x abaixo do teto)** |
+| **2. Geral T1 ($A \times B$)** | `11019.9980` | `11019.9951` | **`0.0029000`** | `0.005` | **Excelente (Aprovado com folga)** |
 
 ### Critério de Aceitação do BIST
 O BIST em [`bist_suite.c`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/bist_suite.c) aprova o cenário (`TEST_PASSED`) se e somente se:
-$$\text{elementos processados} == 2025 \quad \mathbf{e} \quad \text{g\_report.absolute\_error} \le \text{g\_report.tolerance}$$
+
+$$\text{elementos processados} == 2025 \quad \text{e} \quad \text{g\_report.absolute\_error} \le \text{g\_report.tolerance}$$
 
 ---
 
@@ -247,7 +257,7 @@ $$\text{elementos processados} == 2025 \quad \mathbf{e} \quad \text{g\_report.ab
 | **Ambiente de Execução** | Intel/AMD x86_64 (FPU nativa + AVX/SSE) | ARM Cortex-M0/M3 (Emulação `soft-float` via libgcc) | Avaliação de portabilidade e fidelidade da emulação |
 | **Metodologia de Teste** | Ponto a ponto em disco (2.025 elementos) | Checksum condensado online via BIST (RAM < 256 B) | Adaptação às restrições severas de memória da T2 |
 | **Maior Erro Absoluto Local ($L_\infty$)** | $0{,}0001831$ ($\approx 1{,}83 \times 10^{-4}$) | $\approx 1{,}4 \times 10^{-4}$ (estimado por elemento) | Mesma ordem de grandeza de erro pontual |
-| **Erro Relativo Global ($E_{\text{rel}}$)** | $\mathbf{1{,}199 \times 10^{-7}}$ (Norma de Frobenius) | $\mathbf{2{,}631 \times 10^{-7}}$ ($\mathbf{0{,}26\text{ ppm}}$ no Checksum) | **Convergência praticamente idêntica ($\sim 10^{-7}$)** |
+| **Erro Relativo Global ($E_{\text{rel}}$)** | $1{,}199 \times 10^{-7}$ (Norma de Frobenius) | $2{,}631 \times 10^{-7}$ (0,26 ppm no Checksum) | **Convergência praticamente idêntica ($\sim 10^{-7}$)** |
 | **Tolerância Estipulada** | $\text{atol} = 0{,}001$ (por elemento) | $\text{atol} = 0{,}005$ (na soma de 2.025 elementos) | **Ambos 100% aprovados com ampla margem de segurança** |
 
 ### Principais Conclusões da Comparação:
@@ -257,6 +267,3 @@ $$\text{elementos processados} == 2025 \quad \mathbf{e} \quad \text{g\_report.ab
    A migração da T1 para a T2 não degradou a qualidade do cálculo. Mesmo operando sob restrição severa de 8 KB de SRAM e sem FPU, o algoritmo manteve precisão na escala de partes por milhão ($< 1\text{ ppm}$).
 3. **Clareza na Apresentação:**  
    A adoção do Erro Absoluto (`absolute_error <= tolerance`) com a tolerância visível na tela do STM32CubeIDE elimina qualquer ambiguidade, apresentando uma validação matemática limpa, transparente e incontestável para a banca avaliadora.
-
-
-
