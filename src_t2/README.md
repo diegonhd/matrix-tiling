@@ -182,7 +182,7 @@ Conectando a placa via cabo ST-Link (SWD), a struct global `g_report` é monitor
 
 ### 6.1 Por que o Erro Absoluto foi escolhido como métrica primária?
 1. **Evita Indeterminação Matemática ($0/0$):** No Teste dos Zeros ($A \times 0 = 0$), o valor esperado é nulo. O erro relativo geraria divisão por zero (`NaN`), enquanto o erro absoluto é matematicamente limpo: $|0{,}0 - 0{,}0| = 0{,}0$.
-2. **Continuidade Metrológica com a Tarefa 1:** Na T1, o critério principal de aprovação dos 30 testes foi $\text{maior\_erro\_abs} \le \text{atol}$. Manter o erro absoluto na T2 garante alinhamento conceitual e clareza imediata na demonstração.
+2. **Continuidade Metrológica com a Tarefa 1:** Na T1, o critério principal de aprovação dos 30 testes foi `maior_erro_abs <= atol`. Manter o erro absoluto na T2 garante alinhamento conceitual e clareza imediata na demonstração.
 3. **Inspeção Direta e Transparente no Live Expressions:** A variável `g_report.tolerance` fica visível lado a lado com `g_report.absolute_error`, permitindo ao avaliador constatar imediatamente que o erro do microcontrolador está confortavelmente contido no limite seguro.
 
 ### 6.2 Dedução Analítica da Tolerância de Aceitação ($\text{tolerance} = 5{,}0 \times 10^{-3}$)
@@ -246,7 +246,7 @@ Em uma soma de $M$ termos com reordenação de blocos no Tiling ($B=8$):
 ### Critério de Aceitação do BIST
 O BIST em [`bist_suite.c`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/bist_suite.c) aprova o cenário (`TEST_PASSED`) se e somente se:
 
-$$\text{elementos processados} == 2025 \quad \text{e} \quad \text{g\_report.absolute\_error} \le \text{g\_report.tolerance}$$
+$$N_{\text{elementos}} = 2025 \quad \text{e} \quad E_{\text{abs}} \le \text{tolerance} \ (0{,}005)$$
 
 ---
 
