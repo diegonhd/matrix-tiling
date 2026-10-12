@@ -13,6 +13,11 @@
 #define CHECKSUM_IDENTIDADE_EXPECTED  -82.699997f
 #endif
 
+/* Tolerância absoluta analítica fundamentada no limite de Higham para a soma de 2.025 elementos */
+#ifndef BIST_ATOL_TOLERANCE
+#define BIST_ATOL_TOLERANCE           0.005f  /* 5.0e-3 (cobre o pior erro observado de 0.0029 com margem) */
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -51,6 +56,7 @@ typedef struct {
     volatile float          checksum_calculated; /**< Soma acumulada de todos os elementos C do teste atual */
     volatile float          checksum_expected;   /**< Valor esperado oficial do teste atual */
     volatile float          absolute_error;      /**< Diferença absoluta (|calculado - esperado|) */
+    volatile float          tolerance;           /**< Tolerância analítica máxima de aceitação (atol = 0.005f) */
 } ValidationReport_t;
 
 /**

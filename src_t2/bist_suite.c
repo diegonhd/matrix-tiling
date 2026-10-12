@@ -1,6 +1,7 @@
 #include "bist_suite.h"
 #include "multi_tiling.h"
 #include <math.h>
+#include <string.h>
 
 /**
  * @brief Relatório global de validação em SRAM.
@@ -12,7 +13,8 @@ volatile ValidationReport_t g_report = {
     .elements_processed = 0,
     .checksum_calculated = 0.0f,
     .checksum_expected = CHECKSUM_ZEROS_EXPECTED,
-    .absolute_error = 0.0f
+    .absolute_error = 0.0f,
+    .tolerance = BIST_ATOL_TOLERANCE
 };
 
 /**
@@ -68,6 +70,7 @@ TestStatus_t bist_run_scenario(TestScenario_t scenario) {
     g_report.checksum_calculated = 0.0f;
     g_report.checksum_expected = bist_get_expected_checksum(scenario);
     g_report.absolute_error = 0.0f;
+    g_report.tolerance = BIST_ATOL_TOLERANCE;
 
     /* Invoca o motor de Tiling puro passando os callbacks do BIST */
     multi_tiling_compute_stream(A,
@@ -76,10 +79,12 @@ TestStatus_t bist_run_scenario(TestScenario_t scenario) {
                                 bist_tile_consumer,
                                 NULL);
 
-    /* Validação da precisão float32 */
+    /* Validação da precisão float32: Erro absoluto contra a tolerância analítica */
     g_report.absolute_error = fabsf(g_report.checksum_calculated - g_report.checksum_expected);
 
-    if ((g_report.elements_processed == (N * N)) && (g_report.absolute_error < 1e-2f)) {
+    /* Critério analítico de aceitação: 2025 elementos e erro contido no limite de Higham */
+    if ((g_report.elements_processed == (N * N)) &&
+        (g_report.absolute_error <= g_report.tolerance)) {
         return TEST_PASSED;
     } else {
         return TEST_FAILED;
