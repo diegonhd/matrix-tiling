@@ -213,7 +213,9 @@ Ao comparar dois motores numéricos (C vs Python) sob a Desigualdade Triangular:
 
 $$|C_{\text{C}} - C_{\text{Py}}| \le 2 \cdot \gamma_{45} \cdot (|A||B|)_{\text{médio}} \approx 2 \times (2{,}6822 \times 10^{-6}) \times 1125{,}0 \approx 6{,}035 \times 10^{-3}$$
 
-*(Na Tarefa 1, adotou-se o filtro conservador de $\text{atol} = 1{,}0 \times 10^{-3} \approx \frac{1}{6}$ do limite médio).*
+*(Na Tarefa 1, adotou-se o filtro conservador de:)*
+
+$$ \text{atol} = 1{,}0 \times 10^{-3} \approx \frac{1}{6}$$
 
 #### Passo 3: Propagação de Erro no Checksum Acumulado (Soma de 2.025 Elementos)
 O Checksum é a soma de todos os $M = 2.025$ elementos ($45 \times 45$).  
