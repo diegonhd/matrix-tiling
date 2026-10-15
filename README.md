@@ -2,9 +2,96 @@
 
 Este repositório documenta a trajetória completa de desenvolvimento, validação estatística e portabilidade de um motor de multiplicação de matrizes quadradas ($N = 45$, 2025 elementos em ponto flutuante IEEE 754 de precisão simples `float32`) utilizando a técnica de particionamento em blocos (**Tiling / Blocking**, $B = 8$).
 
-O projeto é dividido em duas etapas complementares de engenharia:
-1. **Tarefa 1 (T1):** Computação em arquitetura Host x86_64, desacoplamento em arquivos binários brutos (*raw*) e auditoria metrológica independente via Jupyter Notebook.
-2. **Tarefa 2 (T2):** Portabilidade para microcontrolador ARM Cortex-M com restrição extrema de memória (**SRAM de apenas 8 KB**), processamento com **Tile Streaming** (buffer de apenas 256 B em RAM), exportação direta de **`C.bin`** na *worktree* do projeto e validação numérica desacoplada em host.
+O projeto é dividido em duas etapas complementares de engenharia organizadas na forma de um **pipeline de execução desacoplado e contínuo**, onde a primeira etapa estabelece a base de dados e a referência analítica para a validação da segunda:
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                               PIPELINE GERAL DE EXECUÇÃO DO PROJETO                             │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+     ┌───────────────────────────────────────────────────────────────────────────────────────┐
+     │  🔬 TAREFA 1 (T1): COMPUTADOR HOST (x86_64) — GERAÇÃO, TILING & ORÁCULO MATEMÁTICO    │
+     │                                                                                       │
+     │  [1. Geração de Entradas] ──> src_t1/input_matrix/ (30 pares + 3 unitários em float32)│
+     │             │                                                                         │
+     │             ├───> [2. Motor C Tiling (B=8)]  ──> src_t1/bin_c/ (C_1..30.bin)          │
+     │             │                                                                         │
+     │             ├───> [3. Gabarito NumPy]        ──> src_t1/bin_py/ (C_1..30.bin)         │
+     │             │                                                                         │
+     │             └───> [4. Auditoria Metrológica] ──> src_t1/audit/ (Relatórios CSV/JSON)  │
+     └──────────────────────────────────────────┬────────────────────────────────────────────┘
+                                                │ Matrizes A_k e B_k compartilhadas
+                                                ▼
+     ┌───────────────────────────────────────────────────────────────────────────────────────┐
+     │  ⚡ TAREFA 2 (T2): CO-PROCESSADOR EMBARCADO (STM32 HIL) — STREAMING SERIAL (8 KB RAM) │
+     │                                                                                       │
+     │  [1. Firmware Bare-Metal] ──> NUCLEO-F030R8 (Cortex-M0, 8 KB SRAM, USART2 460.800 bps)│
+     │                                    ▲                                                  │
+     │                         Handshake  │  Tile-Strip Streaming (Faixas A & Blocos B)      │
+     │                         ('P'/'O')  │  Retorno Sub-blocos C[8][8] (256 B)              │
+     │                                    ▼                                                  │
+     │  [2. Orquestrador Host]   <──> [3. Processamento no Silício (~3,1 KB SRAM)]           │
+     │             │                                                                         │
+     │             ├───> [4. Reconstrução Matricial] ──> Grava C.bin na raiz do projeto      │
+     │             ├───> [5. Validação Tripla HIL]   ──> STM32 vs Motor C vs NumPy           │
+     │             └───> [6. Painel de Auditoria]    ──> src_t2/audit/ (CSV, JSON e Gráficos)│
+     └───────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚙️ Detalhamento dos Pipelines de Execução
+
+### 🔬 Pipeline da Tarefa 1 (T1) — Computação em Host x86_64 e Auditoria
+
+O pipeline da Tarefa 1 opera integralmente na máquina hospedeira e visa produzir os dados de teste, executar a computação particionada clássica em C e auditar rigorosamente os resultados contra um oráculo em Python:
+
+1. **Fase 1: Síntese e Geração das Matrizes de Entrada:**
+   - O gerador [`matrix_gen.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_gen.c) sintetiza 30 pares de matrizes $45 \times 45$ com distribuição uniforme bipolar $[-10{,}0, +9{,}9]$ sob sementes determinísticas, além de 3 casos limítrofes (Identidade, Zeros e Matriz Forçada).
+   - As matrizes são gravadas como binários puros (*raw float32*, 8.100 bytes cada) no diretório [`src_t1/input_matrix/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/input_matrix/).
+2. **Fase 2: Multiplicação com Tiling Clássico em C:**
+   - O executável [`matrix_multi.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_multi.c) lê os pares $A$ e $B$ do disco e executa o algoritmo particionado com 6 laços aninhados (tamanho de bloco $B = 8$).
+   - Os resultados são salvos em formato binário bruto em [`src_t1/bin_c/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/bin_c/).
+3. **Fase 3: Computação do Gabarito Analítico em Python:**
+   - O script [`matrix_multi.py`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_multi.py) processa os mesmos arquivos via rotinas vetorizadas BLAS/NumPy em precisão simples (`np.float32`), gerando as matrizes de referência absoluta em [`src_t1/bin_py/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/bin_py/).
+4. **Fase 4: Auditoria Metrológica Independente:**
+   - O notebook [`framework_testes.ipynb`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/framework_testes.ipynb) é executado para ler unicamente os binários em disco, calculando o maior erro absoluto ($L_\infty$), desvios em ULPs, distância de Frobenius e verificação criptográfica SHA-256, gerando os laudos em [`src_t1/audit/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/audit/).
+
+```powershell
+# Execução sequencial completa do pipeline da T1:
+gcc -O2 -Wall -Wextra src_t1/matrix_gen.c -o matrix_gen; ./matrix_gen
+gcc -O3 -Wall -Wextra src_t1/matrix_multi.c -o matrix_multi; ./matrix_multi
+python src_t1/matrix_multi.py
+jupyter execute src_t1/framework_testes.ipynb
+```
+
+---
+
+### ⚡ Pipeline da Tarefa 2 (T2) — Acelerador Embarcado STM32 HIL (*Hardware-in-the-Loop*)
+
+O pipeline da Tarefa 2 transporta a carga de trabalho para um microcontrolador com apenas **8 KB de SRAM**, utilizando o protocolo serial de *Tile-Strip Streaming* para nunca exceder a memória física da placa:
+
+1. **Fase 1: Inicialização e Handshake Serial:**
+   - O microcontrolador NUCLEO-F030R8 roda o firmware bare-metal [`main.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c) e aguarda comandos na USART2 a 460.800 bps.
+   - O orquestrador host [`runner_serial.py`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py) detecta a porta COM via [`auto_detectar_porta_stlink()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L33-L43) e envia o *ping* `'P'`, aguardando a resposta `'O'` para validar a integridade do canal.
+2. **Fase 2: Streaming de Matrizes por Faixas e Blocos:**
+   - Para cada um dos 30 testes em [`src_t1/input_matrix/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/input_matrix/), o Host envia a matriz $A$ fatiada em faixas horizontais de 8 linhas (`CMD_STRIP_A` + 1.440 bytes). O STM32 confirma o recebimento com `'K'`.
+   - Em seguida, o Host envia sucessivos blocos verticais de $B$ (`CMD_BLOCK_B` + 1.440 bytes).
+3. **Fase 3: Computação no Silício com Buffer Ultra-Reduzido:**
+   - O módulo [`multi_tiling.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c) processa e acumula o produto dos blocos em um buffer de saída de apenas $8 \times 8$ floats (**256 bytes em SRAM**).
+   - O resultado de cada bloco é transmitido de volta para o Host imediatamente pela serial.
+4. **Fase 4: Reconstrução Matricial e Gravação de `C.bin`:**
+   - O Host recebe os blocos calculados e monta a matriz completa $45 \times 45$ em memória, gravando o arquivo binário consolidado [`C.bin`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/C.bin) na raiz do projeto.
+5. **Fase 5: Validação Metrológica Tripla em Tempo Real:**
+   - O Host confronta instantaneamente a matriz do STM32 contra o gabarito NumPy em precisão simples, validando a tolerância e os desvios em ULPs para cada caso de teste.
+6. **Fase 6: Relatórios Consolidados e Painel Gráfico:**
+   - Ao término dos 30 conjuntos, o script emite os relatórios formais em [`src_t2/audit/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/audit/) (`.csv` e `.json`) e permite a visualização das cartas de controle estatístico no notebook [`src_t2/framework_testes.ipynb`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/framework_testes.ipynb).
+
+```powershell
+# Execução do pipeline da T2 (com a placa conectada via USB):
+python src_t2/runner_serial.py
+jupyter execute src_t2/framework_testes.ipynb
+```
 
 ---
 
