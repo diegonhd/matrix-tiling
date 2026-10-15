@@ -4,7 +4,7 @@ Este repositório documenta a trajetória completa de desenvolvimento, validaç�
 
 O projeto é dividido em duas etapas complementares de engenharia:
 1. **Tarefa 1 (T1):** Computação em arquitetura Host x86_64, desacoplamento em arquivos binários brutos (*raw*) e auditoria metrológica independente via Jupyter Notebook.
-2. **Tarefa 2 (T2):** Portabilidade para microcontrolador ARM Cortex-M com restrição extrema de memória (**SRAM de apenas 8 KB**), contorno da ausência de UART via BIST (*Built-In Self-Test*) condensado e demonstração física em bancada.
+2. **Tarefa 2 (T2):** Portabilidade para microcontrolador ARM Cortex-M com restrição extrema de memória (**SRAM de apenas 8 KB**), processamento com **Tile Streaming** (buffer de apenas 256 B em RAM), exportação direta de **`C.bin`** na *worktree* do projeto e validação numérica desacoplada em host.
 
 ---
 
@@ -28,21 +28,22 @@ matrix-tiling/
 │   ├── bin_py/                         # Matrizes C de referência (float32) geradas pelo NumPy
 │   └── audit/                          # Logs formais em CSV e JSON com registros da auditoria
 │
-└── src_t2/                             # ⚡ TAREFA 2: Portabilidade para Microcontrolador (STM32, 8 KB SRAM)
-    ├── README.md                       # Detalhamento completo da T2, restrições e critérios da banca
-    ├── Core/Inc/
-    │   ├── multi_tiling.h              # Motor puro: protótipos de computação em blocos e streaming
-    │   ├── bist_suite.h                # Suíte BIST: orquestração dos 3 cenários e struct g_report
-    │   ├── test_data.h                 # Entradas estáticas em Flash e checksums de referência
-    │   └── main.h                      # Cabeçalhos do STM32Cube / HAL
-    ├── Core/Src/
-    │   ├── multi_tiling.c              # Motor puro de Tiling com Tile Streaming (buffer local de 256B)
-    │   ├── bist_suite.c                # Implementação da suíte de testes BIST (Zeros, Identidade, Teste 1)
-    │   └── main.c                      # Ponto de entrada: inicialização HAL, controle de LED e BIST
-    ├── generate_test_data.py           # Conversor de binários da T1 para cabeçalho C em Flash
-    ├── tutorial.md                     # Guia passo a passo no STM32CubeIDE e roteiro de demonstração
-    ├── explicacao_t2.md                # Documento vivo da T2 (desafios de memória, hardware e decisões)
-    └── arquitetura_stm32cube.md        # Especificação da arquitetura de hardware e software
+└── src_t2/                             # ⚡ TAREFA 2: Co-Processador Serial em Tempo Real (STM32 HIL, 8 KB SRAM)
+    ├── README.md                       # Especificação da T2 e arquitetura de co-processador serial
+    ├── arquitetura.md                  # Especificação formal da arquitetura serial HIL
+    ├── tutorial.md                     # Guia passo a passo de pinagem, USART2 DMA e execução
+    ├── runner_serial.py                # Script Host Python: orquestra envio dos 30 testes e validação
+    ├── protocolo_serial.py             # Módulo de frames binários e cálculo de CRC-16 no Python
+    ├── framework_testes.ipynb          # Auditoria gráfica e análise estatística dos 30 testes
+    ├── audit/                          # Relatórios formais gerados (CSV, JSON, gráficos)
+    │   ├── auditoria_serial_30_testes.csv
+    │   ├── auditoria_serial_30_testes.json
+    │   └── painel_auditoria_serial.png
+    └── firmware_stm32/                 # Firmware Bare-Metal para NUCLEO-F030R8 (C / HAL)
+        ├── STM32F030R8TX_FLASH.ld      # Linker script oficial (8 KB RAM, 64 KB Flash)
+        └── Core/
+            ├── Inc/ (main.h, protocolo.h, multi_tiling.h)
+            └── Src/ (main.c, protocolo.c, multi_tiling.c)
 ```
 
 ---
@@ -51,18 +52,40 @@ matrix-tiling/
 
 | Aspecto | Tarefa 1 (T1) — Host x86_64 | Tarefa 2 (T2) — Embarcado STM32 |
 | :--- | :--- | :--- |
-| **Plataforma** | Computador PC (Intel/AMD x86_64) | Microcontrolador (STM32F103 $\rightarrow$ STM32F030) |
-| **Arquitetura da CPU** | x86_64 multi-core com FPU hardware (SSE/AVX) | ARM Cortex-M3 / Cortex-M0 (**Sem FPU em hardware**) |
+| **Plataforma** | Computador PC (Intel/AMD x86_64) | Microcontrolador (NUCLEO-F030R8 / STM32F103) |
+| **Arquitetura da CPU** | x86_64 multi-core com FPU hardware (SSE/AVX) | ARM Cortex-M0 / Cortex-M3 (**Sem FPU em hardware**) |
 | **Memória RAM** | Gigabytes de memória disponível | **8.192 bytes (8 KB)** rigorosamente limitados |
-| **I/O e Armazenamento** | Sistema de arquivos do SO (arquivos `.bin`) | Memória **Flash** (`.rodata`, 64 KB) + **Zero Disco** |
 | **Alocação de Matrizes** | $A$, $B$ e $C$ completas na RAM ($24{,}3\text{ KB}$) | **Tile Streaming:** apenas **256 bytes** de buffer em SRAM |
-| **Interface de Comunicação** | Terminal CLI / Jupyter Notebook | **Zero UART** (Sinalização via LED + SWD Live Expressions) |
-| **Verificação Matemática** | Comparação célula a célula contra NumPy em disco | **BIST condensado** online com tolerância de float32 |
+| **Geração de Saída** | Gravação de `C.bin` via chamadas POSIX no PC | Gravação direta na **Flash interna** (`0x0800E000`) sem Semihosting |
+| **Verificação Matemática** | Comparação em disco contra NumPy em Jupyter | **Framework Metrológico Triplo (`framework_testes.ipynb`):** STM32 vs C vs Python |
+
+---
+
+## 🗺️ Mapa de Navegação Rápida (Onde se Aprofundar no Código)
+
+Para explorar diretamente as implementações sem se perder nos detalhes:
+
+### 🔬 Tarefa 1 (Host x86_64)
+* **Geração de Entradas:** [`matrix_gen.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_gen.c) — Cria os 30 pares de matrizes aleatórias bipolares e casos unitários (Identidade, Zeros, Matriz Forçada).
+* **Multiplicação com Tiling Clássico:** [`matrix_multi.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_multi.c) — 6 laços aninhados dividindo a multiplicação em blocos $8 \times 8$ em disco.
+* **Gabarito em Python:** [`matrix_multi.py`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_multi.py) — Multiplicação vetorizada com NumPy para referência analítica.
+* **Auditoria Metrológica:** [`src_t1/framework_testes.ipynb`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/framework_testes.ipynb) — Verificação de conformidade numérica ($L_\infty$, ULPs, Frobenius e SHA-256).
+
+### ⚡ Tarefa 2 (STM32 HIL & Streaming Serial)
+* **Orquestrador Host (PC):** [`runner_serial.py`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py)
+  - [`auto_detectar_porta_stlink()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L33-L43) — Localiza automaticamente a placa conectada na USB.
+  - [`processar_matriz_remota()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L62-L99) — Fatia a matriz $A$ em faixas, envia blocos de $B$ e reconstrói $C$.
+* **Loop de Comandos no Silício:** [`main.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c)
+  - [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L35-L113) — Inicialização de hardware, USART2 e máquina de estados para `'P'`, `'A'` e `'B'`.
+* **Motor de Tiling Embarcado:** [`multi_tiling.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c)
+  - [`multi_tiling_set_faixa_A()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L34-L46) — Grava a fatia ativa de $A$ na SRAM com proteção de limites.
+  - [`multi_tiling_computar_bloco()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L74-L120) — Multiplica e acumula o bloco $8 \times 8$ em apenas 256 bytes de memória.
+* **Painel Gráfico de Auditoria:** [`src_t2/framework_testes.ipynb`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/framework_testes.ipynb) — Cartas de controle estatístico (SPC) e dispersão de resíduos.
 
 ---
 
 ## 🎯 Links Diretos para Documentação Detalhada
 
-- Para entender os detalhes da geração de matrizes, cálculo de ULPs e auditoria de 100% de aprovação na T1: consulte [**`src_t1/README.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/README.md).
-- Para entender as restrições de 8 KB de SRAM, a solução do Tile Streaming e a suíte multi-testes na T2: consulte [**`src_t2/README.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/README.md).
-- Para o passo a passo de configuração e demonstração prática no **STM32CubeIDE**: consulte [**`src_t2/tutorial.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/tutorial.md).
+- Para entender os detalhes da geração de matrizes, cálculo de ULPs e auditoria de 100% de aprovação na T1: consulte [**`src_t1/README.md`**](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/README.md).
+- Para entender as restrições de 8 KB de SRAM, a solução do Tile Streaming e a geração de `C.bin` na T2: consulte [**`src_t2/README.md`**](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/README.md).
+- Para o passo a passo de configuração e demonstração prática no **STM32CubeIDE**: consulte [**`src_t2/tutorial.md`**](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/tutorial.md).

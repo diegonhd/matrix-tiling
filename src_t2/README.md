@@ -1,271 +1,228 @@
-# ⚡ Tarefa 2 (T2): Portabilidade para Microcontrolador com Severa Restrição de Memória (STM32)
+# ⚡ Tarefa 2 (T2): Acelerador Co-Processador Serial em Tempo Real (Hardware-in-the-Loop)
 
 > **Diretório:** `src_t2/`  
-> **Plataforma de Desenvolvimento/Bancada:** STM32F103C8T6 (Blue Pill, ARM Cortex-M3, **SRAM limitada a 8 KB**)  
-> **Plataforma Alvo Final:** Nucleo STM32F030R8T6 (ARM Cortex-M0, **8 KB SRAM nativa**, 64 KB Flash)  
-> **Ambiente de Desenvolvimento:** STM32CubeIDE / STM32CubeMX com drivers HAL
+> **Plataforma Alvo:** NUCLEO-F030R8 / STM32F030R8T6 (ARM Cortex-M0, **8 KB SRAM nativa**, 64 KB Flash)  
+> **Comunicação:** USART2 (PA2=TX, PA3=RX) a **460.800 bps** via ST-LINK Virtual COM Port (VCP)  
+> **Estratégia de Memória:** **Tile-Strip Streaming** ($B=8$) mantendo o consumo de SRAM em apenas **~3,1 KB**  
+> **Automação de Testes:** Execução contínua dos **30 conjuntos de matrizes** ($45 \times 45$, `float32`) com validação NumPy em tempo real.
 
 ---
 
-## 1. Visão Geral e Requisitos
+## 1. Visão Geral da Arquitetura
 
-### 1.1 Objetivo Geral
-Portar o algoritmo de multiplicação de matrizes da T1 para uma plataforma de microcontrolador com recursos drasticamente inferiores aos de um PC, superando limitações severas de memória (RAM restrita a 8 KB) e desenvolvendo mecanismos embarcados para diagnóstico, instrumentação e validação autônoma.
+O firmware transforma a placa **NUCLEO-F030R8** em um co-processador matemático autônomo conectado via cabo USB:
 
-### 1.2 Restrições e Desafios de Engenharia
-1. **Ausência de Sistema de Arquivos:** Sem suporte a disco ou chamadas POSIX (`fopen`, `fread`). Todas as entradas devem residir na memória Flash integrada do MCU.
-2. **Ausência de FPU em Hardware:** Microcontroladores ARM Cortex-M0 e Cortex-M3 (como o STM32F030 e STM32F103) realizam operações em ponto flutuante IEEE 754 de 32 bits (`float32`) via emulação por software (`libgcc`), exigindo precisão numérica idêntica e sem discrepâncias de arredondamento.
-3. **Severa Restrição de Memória SRAM (8.192 bytes):**
-   - Para matrizes $N = 45$ em `float32` (4 bytes por elemento):
-     - Tamanho de uma matriz: $45 \times 45 \times 4 = 8.100\text{ bytes}$
-   - Se as três matrizes ($A$, $B$, $C$) fossem alocadas em RAM: exigiriam $24.300\text{ bytes}$ (estouro imediato da SRAM).
-   - Se apenas a matriz de saída $C$ fosse mantida em RAM: consumiria $8.100$ dos $8.192\text{ bytes}$ disponíveis (**98,8% da SRAM total**), sufocando a pilha de execução (*stack*) e levando a um *HardFault*.
-4. **Validação com Zero UART:** A validação e instrumentação de funcionamento não dependem de conversor USB-TTL ou terminal serial.
-
-### 1.3 Critérios e Pesos de Avaliação
-| Aspecto Avaliado | Peso |
-| :--- | :---: |
-| Funcionamento correto na plataforma indicada (preservação de requisitos: $N = 45$, `float32`) | **25%** |
-| Clareza do código para fins de reuso (modularidade e desacoplamento) | **10%** |
-| Ajustes para migração de plataforma (grau de dificuldade e aprendizado) | **20%** |
-| Procedimentos de teste e validação | **15%** |
-| Conhecimento dos conceitos de embarcados durante a apresentação | **30%** |
-
----
-
-## 2. A Solução Arquitetural de Memória: Tile Streaming
-
-Para contornar o limite de 8 KB de RAM, o projeto adota uma arquitetura em duas frentes:
-
-```
+```text
 +-----------------------------------------------------------------------------------------+
-|                                     STM32 MICROCONTROLLER                               |
+|                                HOST PC (Python 3 / NumPy)                               |
 |                                                                                         |
-|  +-------------------------------------+      +--------------------------------------+  |
-|  |             FLASH (ROM)             |      |              SRAM (8 KB)             |  |
-|  |  - Código / HAL / Drivers (.text)   |      |  - Buffer de Bloco C: float [8][8]   |  |
-|  |  - Matriz A[N][N] (const / .rodata) |      |    (apenas 256 bytes em .bss!)       |  |
-|  |  - Matriz B[N][N] (const / .rodata) |      |  - Struct g_report (Telemetria BIST) |  |
-|  |  - Checksums de Referência (Python) |      |  - Stack do Sistema (~512 bytes)     |  |
-|  +-------------------------------------+      +--------------------------------------+  |
-|                     |                                             |                     |
-|                     v                                             v                     |
-|             +-------------------------------------------------------------+             |
-|             |        Motor Algorítmico: multi_tiling com STREAMING        |             |
-|             |          Computa Bloco a Bloco de C diretamente em RAM      |             |
-|             +-------------------------------------------------------------+             |
-|                                            |                                            |
-|                                            v                                            |
-|             +-------------------------------------------------------------+             |
-|             |         Módulo de Auto-Validação (Built-In Self-Test)       |             |
-|             |        Acumula Checksum Online conforme os blocos fluem     |             |
-|             +-------------------------------------------------------------+             |
-|                       |                                       |                         |
-|                       v                                       v                         |
-|        +-----------------------------+         +-------------------------------+        |
-|        | Sinalização Física por GPIO |         |  Depuração não-intrusiva SWD  |        |
-|        | - LED Estado (OK / Falha)   |         |  - STM32CubeIDE Live Watch    |        |
-|        |                             |         |  - Inspeciona variáveis em RAM|        |
-|        +-----------------------------+         +-------------------------------+        |
+|  - Lê matrizes A_k e B_k de src_t1/input_matrix/ (30 conjuntos estatísticos + unitários)|
+|  - Transmite faixas horizontais de A e recebe confirmação 'K'                           |
+|  - Transmite blocos de B e recebe sub-blocos calculados de C em tempo real pela serial  |
+|  - Compara C_stm32 vs C_py (NumPy float32) e emite laudos automáticos (CSV, JSON)       |
++-----------------------------------------------------------------------------------------+
+                                           |   ^
+                    Streaming Serial USB   |   |  Sub-bloco Resultante C[8][8]
+                    (Baud: 460.800 bps)    v   |  (apenas 256 bytes)
++-----------------------------------------------------------------------------------------+
+|                              NUCLEO-F030R8 (ARM Cortex-M0)                              |
+|                                                                                         |
+|  - ST-LINK VCP (PA2/PA3 USART2)                                                         |
+|  - Loop de escuta direto: comandos 'P' (Ping), 'A' (Faixa A) e 'B' (Bloco B)            |
+|  - Motor de Tiling Streaming: acumula sub-bloco de C[8][8] em apenas 256 B de SRAM      |
+|  - Consumo total de RAM: ~3,1 KB (quase 5 KB livres na SRAM nativa de 8 KB)             |
+|  - Sinalização por LED LD2 (PA5): pulsa em atividade serial, fixo em repouso            |
 +-----------------------------------------------------------------------------------------+
 ```
 
-### 2.1 Entradas na Flash (`.rodata`)
-As matrizes de entrada $A$ e $B$ são declaradas como constantes em [`test_data.h`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/test_data.h):
-```c
-static const float A[N][N] = { ... };
-static const float B[N][N] = { ... };
-```
-- Armazenadas diretamente na seção **`.rodata`** da Flash do microcontrolador.
-- Consomem cerca de 16,2 KB dos 64 KB de Flash disponíveis.
-- **Custo de SRAM: 0 bytes**.
-
-### 2.2 Saída $C$ via Tile Streaming (Buffer de 256 Bytes em SRAM)
-Em vez de alocar os 8.100 bytes de $C$ em RAM, [`multi_tiling.c`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/multi_tiling.c) aloca apenas um buffer estático de $8 \times 8$:
-```c
-static float bloco_C[BLOCK][BLOCK]; /* 8 x 8 floats = 256 bytes na SRAM (.bss) */
-```
-1. O laço de Tiling calcula as posições de um único sub-bloco de dimensões até $8 \times 8$.
-2. Assim que o bloco é finalizado, o motor dispara um **callback consumidor** (`tile_consumer_fn_t`), entregando o bloco pronto.
-3. O consumidor (BIST) audita e acumula o resultado online.
-4. O buffer é limpo (`memset`) e reutilizado para o próximo bloco.
-
-### 2.3 Comparativo de Gestão de Memória
-
-| Componente | Abordagem Tradicional (Sem Streaming) | Arquitetura Implementada (Tile Streaming) |
-| :--- | :--- | :--- |
-| **Matriz A** | 8.100 B na Flash (`.rodata`) | 8.100 B na Flash (`.rodata`) |
-| **Matriz B** | 8.100 B na Flash (`.rodata`) | 8.100 B na Flash (`.rodata`) |
-| **Saída C** | 8.100 B na SRAM (`.bss`) | **0 B** na SRAM |
-| **Buffer de Bloco C** | Inexistente | **256 B** na SRAM (`float[8][8]`) |
-| **SRAM Livre (de 8 KB)**| cerca de 92 bytes (**Risco de Crash / HardFault**) | **mais de 7.500 bytes** (**Folga total para Stack e RTOS**) |
-
 ---
 
-## 3. Configuração de Hardware e Periféricos (.ioc)
-
-A configuração no STM32CubeMX foi mantida minimalista para maximizar a portabilidade entre as placas:
-
-1. **LED de Sinalização de Status:**
-   - **STM32F103C8T6 (Blue Pill):** Pino **`PC13`**, modo `GPIO_Output Push-Pull`, inicial em `HIGH` (ativo em nível baixo / *active-low*).
-   - **STM32F030R8T6 (Nucleo-64):** Pino **`PA5`** (LED verde LD2), modo `GPIO_Output Push-Pull`, inicial em `LOW` (ativo em nível alto / *active-high*).
-   - Rótulo de usuário padronizado: `LED_STATUS`.
-2. **Interface de Depuração:**
-   - Pino `PA13` (SWDIO) e `PA14` (SWCLK) configurados como **Serial Wire (SWD)** no menu `SYS`. Permite comunicação direta com ST-Link sem consumir pinos de UART.
-3. **Clock (RCC):**
-   - Configurado com oscilador interno (HSI) com divisores em 1, dispensando a necessidade de cristais externos durante testes e migração.
-
----
-
-## 4. Estrutura Modular dos Arquivos
-
-O código foi projetado com estrito desacoplamento entre hardware, motor matemático e suíte de testes:
+## 2. Estrutura Modular da Árvore (*Worktree*) de `src_t2/`
 
 ```text
 src_t2/
-├── Core/Inc/
-│   ├── multi_tiling.h          # Motor de cálculo: contratos de particionamento e callbacks
-│   ├── bist_suite.h            # Suíte BIST: cenários (0, I, Geral) e struct ValidationReport_t
-│   ├── test_data.h             # Matrizes constantes em Flash (.rodata) e checksums de referência
-│   └── main.h                  # Definições de pinos e inicialização geradas pelo CubeMX
+├── README.md                           # Especificação técnica, etapas e papéis de cada arquivo
+├── arquitetura.md                      # Especificação formal da arquitetura serial HIL
+├── tutorial.md                         # Guia prático passo a passo de pinagem, CubeMX e execução
+├── runner_serial.py                    # Orquestrador Host Python: gerencia porta serial e os 30 testes
+├── protocolo_serial.py                 # Módulo de protocolo serial simplificado (comandos 'P', 'A', 'B')
+├── framework_testes.ipynb              # Caderno Jupyter de auditoria gráfica e análise estatística
 │
-├── Core/Src/
-│   ├── multi_tiling.c          # Motor puro: algoritmo de Tiling em blocos (independente de hardware)
-│   ├── bist_suite.c            # Implementação do BIST: gerador de B virtual, acumulador e tolerância
-│   └── main.c                  # Ponto de entrada: inicializa HAL, dispara BIST e controla LED
+├── audit/                              # Laudos e evidências gerados automaticamente
+│   ├── auditoria_serial_30_testes.csv  # Tabela com métricas metrológicas dos 30 testes
+│   ├── auditoria_serial_30_testes.json # Relatório estruturado em JSON com taxas de aprovação
+│   └── painel_auditoria_serial.png     # Painel visual com controle de processo, histograma e latência
 │
-├── generate_test_data.py       # Script Python que compila binários da T1 em test_data.h
-├── tutorial.md                 # Guia prático de configuração no CubeIDE e roteiro da apresentação
-└── README.md                   # Este documento (visão geral, arquitetura e testes)
+└── firmware_stm32/                     # Código-Fonte do Firmware Embarcado (C / HAL)
+    ├── STM32F030R8TX_FLASH.ld          # Linker script oficial (8 KB RAM, 64 KB Flash)
+    │
+    ├── Core/Inc/
+    │   ├── main.h                      # Definições de pinos e barramentos da Nucleo
+    │   ├── protocolo.h                 # Definição dos comandos diretos ('P', 'A', 'B', 'O', 'K')
+    │   └── multi_tiling.h              # Protótipo do motor de Tiling streaming por faixas
+    │
+    └── Core/Src/
+        ├── main.c                  # Inicialização de HAL, USART2 e loop principal simplificado
+        ├── protocolo.c             # Apoio ao módulo de protocolo
+        └── multi_tiling.c          # Multiplicação particionada em blocos 8x8 (256 B RAM)
 ```
 
 ---
 
-## 5. Procedimentos de Teste e Validação (Zero UART)
+### 3. Fluxo de Execução do Pipeline HIL (Abstração por Etapas)
 
-A suíte **BIST (*Built-In Self-Test*)** cobre 3 cenários de teste executados sequencialmente em [`bist_suite.c`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/bist_suite.c):
+O ciclo de execução contínua entre o **Host PC** e o **STM32** opera de forma síncrona (*Hardware-in-the-Loop*), dividido em 8 etapas conceituais:
 
-1. **Cenário 0 (`SCENARIO_ZEROS`) — Elemento Nulo:**  
-   Multiplica $A \times 0 = 0$. Valida se o acumulador e o motor zeram adequadamente os blocos.  
-   Checksum Esperado = `0.0f`.
-2. **Cenário 1 (`SCENARIO_IDENTITY`) — Elemento Neutro:**  
-   Multiplica $A \times I = A$. Fornece dinamicamente a matriz identidade via getter virtual (`(k == j) ? 1.0f : 0.0f`). Valida a integridade das somas e produtos de cada linha e coluna.  
-   Checksum Esperado = `-82.699997f`.
-3. **Cenário 2 (`SCENARIO_STANDARD_1`) — Multiplicação Geral da T1:**  
-   Multiplica $A \times B$ com os dados reais importados da Tarefa 1.  
-   Checksum Esperado = `11019.998f`.
-
-### Inspeção e Demonstração Prática
-
-#### A. No Hardware Físico (LED de Status)
-- **Boot:** O LED pisca rápido 3 vezes (100 ms) indicando inicialização do sistema.
-- **Sucesso (`TEST_PASSED`):** O LED fica **aceso fixo contínuo**.
-- **Falha (`TEST_FAILED`):** O LED pisca lentamente a 1 Hz (500 ms).
-
-#### B. No STM32CubeIDE (*Live Expressions* via ST-Link)
-Conectando a placa via cabo ST-Link (SWD), a struct global `g_report` é monitorada em tempo real na janela **Live Expressions**:
-
-| Expressão | Tipo | Descrição e Valores Observados |
-| :--- | :--- | :--- |
-| `g_report.status` | `TestStatus_t` | `TEST_RUNNING (1)` durante o cálculo $\rightarrow$ `TEST_PASSED (2)` |
-| `g_report.current_scenario` | `TestScenario_t` | `0` (Zeros) $\rightarrow$ `1` (Identidade) $\rightarrow$ `2` (Geral) |
-| `g_report.tests_passed_count` | `uint32_t` | Incrementa progressivamente de `0` até `3` |
-| `g_report.elements_processed` | `uint32_t` | Sobe de `0` até `2025` em cada cenário |
-| `g_report.checksum_calculated`| `float` | Checksum acumulado pelo algoritmo em tempo de execução |
-| `g_report.checksum_expected`  | `float` | Valor de referência gerado pelo Python |
-| `g_report.absolute_error`     | `float` | Diferença absoluta observada: abs(C_calc - C_exp) |
-| `g_report.tolerance`          | `float` | **Tolerância analítica visível em RAM** (`0.005f`) |
+```text
+[1. Handshake] ──> [2. Carga Matrizes] ──> [3. Fatiamento A] ──> [4. Streaming B]
+                                                                        │
+[8. Relatórios] <── [7. Auditoria NumPy] <── [6. Reconstrução C] <── [5. Retorno C]
+```
 
 ---
 
-## 6. Dedução Analítica da Tolerância e Resultados Reais de Bancada
-
-### 6.1 Por que o Erro Absoluto foi escolhido como métrica primária?
-1. **Evita Indeterminação Matemática ($0/0$):** No Teste dos Zeros ($A \times 0 = 0$), o valor esperado é nulo. O erro relativo geraria divisão por zero (`NaN`), enquanto o erro absoluto é matematicamente limpo: $|0{,}0 - 0{,}0| = 0{,}0$.
-2. **Continuidade Metrológica com a Tarefa 1:** Na T1, o critério principal de aprovação dos 30 testes foi `maior_erro_abs <= atol`. Manter o erro absoluto na T2 garante alinhamento conceitual e clareza imediata na demonstração.
-3. **Inspeção Direta e Transparente no Live Expressions:** A variável `g_report.tolerance` fica visível lado a lado com `g_report.absolute_error`, permitindo ao avaliador constatar imediatamente que o erro do microcontrolador está confortavelmente contido no limite seguro.
-
-### 6.2 Dedução Analítica da Tolerância de Aceitação ($\text{tolerance} = 5{,}0 \times 10^{-3}$)
-
-A definição da tolerância foi derivada do **Teorema do Limite Determinístico de Arredondamento para Multiplicação Matricial** de **Nicholas J. Higham** (*Accuracy and Stability of Numerical Algorithms*, SIAM, 2002) adaptado para redução cumulativa (Checksum):
-
-#### Passo 1: Parâmetros Físicos da Aritmética IEEE 754 (`float32`)
-- **Unidade de Arredondamento (*Unit Roundoff*):**  
-  Para mantissa de 23 bits explícitos + 1 implícito ($p = 24$):
-
-  $$u = 2^{-24} \approx 5{,}960464 \times 10^{-8}$$
-
-- **Constante Acumuladora de Higham ($\gamma_N$):**  
-  Para o produto interno de dimensão $N = 45$:
-
-  $$\gamma_{45} = \frac{45 \cdot u}{1 - 45 \cdot u} \approx 45 \cdot u \approx 45 \times (5{,}96 \times 10^{-8}) \approx 2{,}6822 \times 10^{-6}$$
-
-#### Passo 2: Limite Determinístico por Elemento Individual da Matriz
-Pelo teorema de Higham, para cada elemento $C_{ij} = \sum_{k=1}^{45} A_{ik} B_{kj}$:
-
-$$|\widehat{C}_{ij} - C_{ij}| \le \gamma_{45} (|A||B|)_{ij}$$
-
-Com entradas bipolares uniformes em $[-10{,}0, +10{,}0]$, a magnitude média de produto é $|A_{ik}||B_{kj}| \approx 5{,}0 \times 5{,}0 = 25{,}0$. Logo:
-
-$$(|A||B|)_{\text{médio}} \approx 45 \times 25{,}0 = 1125{,}0$$
-
-Ao comparar dois motores numéricos (C vs Python) sob a Desigualdade Triangular:
-
-$$|C_{\text{C}} - C_{\text{Py}}| \le 2 \cdot \gamma_{45} \cdot (|A||B|)_{\text{médio}} \approx 2 \times (2{,}6822 \times 10^{-6}) \times 1125{,}0 \approx 6{,}035 \times 10^{-3}$$
-
-*(Na Tarefa 1, adotou-se o filtro conservador de:)*
-
-$$ \text{atol} = 1{,}0 \times 10^{-3} \approx \frac{1}{6}$$
-
-#### Passo 3: Propagação de Erro no Checksum Acumulado (Soma de 2.025 Elementos)
-O Checksum é a soma de todos os $M = 2.025$ elementos ($45 \times 45$).  
-Em uma soma de $M$ termos com reordenação de blocos no Tiling ($B=8$):
-
-1. **Modelo Estocástico de Arredondamento (Higham, Cap. 3):**  
-   Os erros de arredondamento comportam-se como variáveis aleatórias de média zero com variância finita. O acúmulo do erro de soma escala com a raiz quadrada da quantidade de elementos ($\sqrt{M}$), e não linearmente ($M$):
-
-   $$\sigma_{\text{soma}} \approx \sqrt{M} \times \sigma_{\text{elemento}} = \sqrt{2025} \times \sigma_{\text{elemento}} = 45 \times \sigma_{\text{elemento}}$$
-
-2. **Propagação do Erro Médio Observado:**  
-   Como o erro médio absoluto individual observado na T1 foi $\bar{E} \approx 1{,}5 \times 10^{-4}$:
-
-   $$E_{\text{checksum}} \approx \sqrt{2025} \times (1{,}5 \times 10^{-4}) = 45 \times (1{,}5 \times 10^{-4}) \approx 6{,}75 \times 10^{-3}$$
-
-3. **Fixação da Tolerância de Projeto ($\text{tolerance} = 0{,}005\text{f}$):**  
-   Fixou-se **`g_report.tolerance = 0.005f`** ($5{,}0 \times 10^{-3}$):
-   - **Fisicamente consistente:** Enquadra-se rigorosamente na ordem de magnitude da propagação de Higham ($\sim 6 \times 10^{-3}$).
-   - **Cobre os desvios legítimos de bancada:** O pior caso real observado na placa foi $0{,}0029$, ficando aprovado com folga de $42\%$.
-   - **Garante imunidade a falhas:** Rejeita qualquer anomalia de cálculo ou problema de memória, cujos erros gerariam desvios ordens de grandeza maiores ($\ge 0{,}1$).
-
-### 6.3 Resultados Reais Observados no Hardware via ST-Link (*Live Expressions*)
-
-| Cenário | Checksum Esperado | Checksum Calculado | Erro Absoluto (`absolute_error`) | Tolerância (`tolerance`) | Avaliação de Conformidade |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **0. Zeros ($A \times 0$)** | `0.0000000` | `0.0000000` | **`0.0000000`** | `0.005` | **Perfeito (Erro Zero)** |
-| **1. Identidade ($A \times I$)** | `-82.6999969` | `-82.6998291` | **`0.0001678`** | `0.005` | **Excelente (30x abaixo do teto)** |
-| **2. Geral T1 ($A \times B$)** | `11019.9980` | `11019.9951` | **`0.0029000`** | `0.005` | **Excelente (Aprovado com folga)** |
-
-### Critério de Aceitação do BIST
-O BIST em [`bist_suite.c`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/bist_suite.c) aprova o cenário (`TEST_PASSED`) se e somente se:
-
-$$N_{\text{elementos}} = 2025 \quad \text{e} \quad E_{\text{abs}} \le \text{tolerance} \ (0{,}005)$$
+### Etapa 1: Handshake e Sincronismo Inicial
+* **Conceito:** Antes de trafegar matrizes, o Host testa a conectividade da porta serial USB enviando um *ping* (`'P'`). O STM32 responde com confirmação imediata (`'O'`) e pisca o LED de status `LD2`.
+* 📍 **Onde se aprofundar:**
+  - Host: [`auto_detectar_porta_stlink()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L33-L43) e handshake em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L116-L126) em `runner_serial.py`.
+  - Firmware: Resposta ao `CMD_PING` em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L70-L74) em `main.c`.
 
 ---
 
-## 7. Comparativo Cruzado de Erro Metrológico: T1 (Host x86) vs T2 (STM32 Bare-Metal)
+### Etapa 2: Carregamento dos Casos de Teste
+* **Conceito:** O Host lê os arquivos binários brutos `A_k.bin` e `B_k.bin` do disco em ponto flutuante de precisão simples (`float32`), moldando-os no formato matricial $45 \times 45$.
+* 📍 **Onde se aprofundar:**
+  - Host: Carga via `np.fromfile()` no laço de testes em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L145-L146) em `runner_serial.py`.
 
-| Métrica Metrológica | Tarefa 1 (PC Host x86_64: C Tiling vs Python) | Tarefa 2 (STM32 Cortex-M: Tile Streaming vs Python) | Interpretação de Engenharia |
-| :--- | :---: | :---: | :--- |
-| **Ambiente de Execução** | Intel/AMD x86_64 (FPU nativa + AVX/SSE) | ARM Cortex-M0/M3 (Emulação `soft-float` via libgcc) | Avaliação de portabilidade e fidelidade da emulação |
-| **Metodologia de Teste** | Ponto a ponto em disco (2.025 elementos) | Checksum condensado online via BIST (RAM < 256 B) | Adaptação às restrições severas de memória da T2 |
-| **Maior Erro Absoluto Local ($L_\infty$)** | $0{,}0001831$ ($\approx 1{,}83 \times 10^{-4}$) | $\approx 1{,}4 \times 10^{-4}$ (estimado por elemento) | Mesma ordem de grandeza de erro pontual |
-| **Erro Relativo Global ($E_{\text{rel}}$)** | $1{,}199 \times 10^{-7}$ (Norma de Frobenius) | $2{,}631 \times 10^{-7}$ (0,26 ppm no Checksum) | **Convergência praticamente idêntica ($\sim 10^{-7}$)** |
-| **Tolerância Estipulada** | $\text{atol} = 0{,}001$ (por elemento) | $\text{atol} = 0{,}005$ (na soma de 2.025 elementos) | **Ambos 100% aprovados com ampla margem de segurança** |
+---
 
-### Principais Conclusões da Comparação:
-1. **Paridade entre FPU de Hardware e Emulação por Software:**  
-   O erro relativo global no computador foi de $\sim 1{,}2 \times 10^{-7}$ e no microcontrolador foi de $\sim 2{,}6 \times 10^{-7}$. Isso prova que a biblioteca `libgcc` no microcontrolador produz **exatamente a mesma estabilidade numérica que uma FPU de computador de última geração**.
-2. **Preservação de Requisitos:**  
-   A migração da T1 para a T2 não degradou a qualidade do cálculo. Mesmo operando sob restrição severa de 8 KB de SRAM e sem FPU, o algoritmo manteve precisão na escala de partes por milhão ($< 1\text{ ppm}$).
-3. **Clareza na Apresentação:**  
-   A adoção do Erro Absoluto (`absolute_error <= tolerance`) com a tolerância visível na tela do STM32CubeIDE elimina qualquer ambiguidade, apresentando uma validação matemática limpa, transparente e incontestável para a banca avaliadora.
+### Etapa 3: Fatiamento Horizontal (*Tile-Strip*) e Envio de $A$
+* **Conceito:** Como a matriz $A$ completa ($8{,}1\text{ KB}$) esgotaria a memória do microcontrolador ($8\text{ KB}$), ela é dividida em faixas horizontais de no máximo 8 linhas ($bi \le 8$). Cada faixa ($1.440\text{ bytes}$) é transmitida ao STM32, que a guarda na SRAM estática e responde com `ACK` (`'K'`).
+* 📍 **Onde se aprofundar:**
+  - Host: Laço externo de fatiamento em [`processar_matriz_remota()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L71-L81) em `runner_serial.py`.
+  - Firmware: Recepção UART e validação de `bi` em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L76-L91) em `main.c`, e gravação na SRAM em [`multi_tiling_set_faixa_A()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L34-L46) em `multi_tiling.c`.
+
+---
+
+### Etapa 4: Streaming de Sub-blocos Verticais de $B$ e Multiplicação
+* **Conceito:** Mantendo a faixa atual de $A$ em memória, o Host envia sucessivos blocos verticais de $B$ (de até 8 colunas, $bj \le 8$). O STM32 computa o produto matricial particionado do sub-bloco resultante $C[bi][bj]$ acumulando em um buffer de apenas **256 bytes**.
+* 📍 **Onde se aprofundar:**
+  - Host: Transmissão dos blocos verticais em [`processar_matriz_remota()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L83-L90) em `runner_serial.py`.
+  - Firmware: Algoritmo de Tiling com particionamento na dimensão interna $K$ em [`multi_tiling_computar_bloco()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L74-L120) em `multi_tiling.c`.
+
+---
+
+### Etapa 5: Devolução Imediata do Bloco $C$ Calculado
+* **Conceito:** O microcontrolador não armazena a matriz $C$ inteira. Assim que cada sub-bloco de até $8 \times 8$ floats termina de ser calculado, ele é devolvido imediatamente via UART serial para o computador.
+* 📍 **Onde se aprofundar:**
+  - Firmware: Chamada `HAL_UART_Transmit` em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L106-L107) em `main.c`.
+
+---
+
+### Etapa 6: Reconstrução da Matriz $C$ no Host
+* **Conceito:** O Host lê os bytes brutos recebidos da serial, decodifica para `float32` e posiciona o sub-bloco na fatia correspondente da matriz global $C$ na memória do PC.
+* 📍 **Onde se aprofundar:**
+  - Host: Leitura precisa com [`ler_exato()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L46-L59) e encaixe em `C_resultado` em [`processar_matriz_remota()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L91-L97) em `runner_serial.py`.
+
+---
+
+### Etapa 7: Auditoria Numérica em Tempo Real (vs. NumPy)
+* **Conceito:** O Host calcula o gabarito de referência com `np.matmul(A, B)` e audita a matriz devolvida pelo microcontrolador através de métricas metrológicas formais: erro absoluto máximo ($L_\infty$), desvio em ULPs (*Units in the Last Place*) e limite de erro de Higham.
+* 📍 **Onde se aprofundar:**
+  - Host: Avaliação de conformidade e tolerância em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L150-L165) em `runner_serial.py`.
+
+---
+
+### Etapa 8: Consolidação Estatística e Emissão de Laudos
+* **Conceito:** Ao término dos 30 testes, o Host compila as métricas de tempo e erro em relatórios estruturados para controle de qualidade e auditoria gráfica.
+* 📍 **Onde se aprofundar:**
+  - Host: Exportação em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L176-L186) em `runner_serial.py`.
+  - Análise Gráfica: Caderno [`src_t2/framework_testes.ipynb`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/framework_testes.ipynb) que plota as cartas de controle estatístico e persistência em [`painel_auditoria_serial.png`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/audit/painel_auditoria_serial.png).
+
+---
+
+## 4. Função e Responsabilidade de Cada Arquivo no Processo
+
+Cada arquivo em `src_t2/` possui uma responsabilidade estrita dentro da arquitetura de co-processador:
+
+| Arquivo | Camada | Papel e Função no Pipeline |
+| :--- | :---: | :--- |
+| [**`runner_serial.py`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py) | **Host (PC)** | **Orquestrador Mestre dos Testes:** Gerencia a porta serial USB, carrega os 30 pares de matrizes de `src_t1/input_matrix/`, fatia em faixas de 8 linhas, envia para a placa, recebe $C_{stm32}$, calcula o gabarito no NumPy, audita os erros e grava os laudos em `src_t2/audit/`. |
+| [**`protocolo_serial.py`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/protocolo_serial.py) | **Host (PC)** | **Camada de Transporte Simplificada:** Define os comandos de 1 byte (`'P'`, `'A'`, `'B'`) e respostas (`'O'`, `'K'`) para comunicação direta e rápida sem overhead. |
+| [**`framework_testes.ipynb`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/framework_testes.ipynb) | **Host (PC)** | **Caderno de Auditoria Gráfica (Jupyter):** Consome os dados consolidados da auditoria dos 30 testes e plota os gráficos de controle de processo ($L_\infty$ vs tempo), histogramas de desvio em ULPs e dispersão temporal, emitindo o laudo formal de conformidade de 100%. |
+| [**`main.c`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c) | **Firmware (STM32)** | **Ponto de Entrada do Microcontrolador:** Inicializa o clock HSI (8 MHz), configura os GPIOs e a USART2 a 460.800 bps, controla o LED LD2 de status e executa o loop principal de escuta serial direta. |
+| [**`protocolo.h`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Inc/protocolo.h) | **Firmware (STM32)** | **Definições do Protocolo:** Mapeia os caracteres de comando (`'P'`, `'A'`, `'B'`, `'O'`, `'K'`) compartilhados entre o C e o Python. |
+| [**`multi_tiling.c`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c) / [**`multi_tiling.h`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Inc/multi_tiling.h) | **Firmware (STM32)** | **Motor de Multiplicação por Tiling:** Armazena a faixa ativa de $A$ ($1.440\text{ bytes}$) e calcula o produto matricial do bloco $8 \times 8$ em apenas **256 bytes de SRAM**, permitindo que o chip de 8 KB opere com folga total sem estouro de memória. |
+| [**`main.h`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Inc/main.h) | **Firmware (STM32)** | **Mapeamento de Hardware da Placa:** Define os pinos físicos da NUCLEO-F030R8 (LED LD2 em `PA5`, USART2 TX em `PA2`, RX em `PA3`). |
+| [**`STM32F030R8TX_FLASH.ld`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/STM32F030R8TX_FLASH.ld) | **Firmware (STM32)** | **Linker Script de Memória:** Define as regiões físicas de hardware do microcontrolador: 64 KB de Flash ROM para código executável e 8 KB de SRAM estática com proteção de pilha (*Stack* de 1.024 bytes). |
+| [**`auditoria_serial_30_testes.csv`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/audit/auditoria_serial_30_testes.csv) | **Auditoria (Dados)** | **Tabela de Conformidade Formal:** Registro em formato tabular legível contendo o tempo de execução (ms), maior erro absoluto ($L_\infty$), erro médio (MAE), erro relativo de Frobenius (ppm), desvio em ULPs e status de aprovação de cada um dos 30 testes. |
+| [**`auditoria_serial_30_testes.json`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/audit/auditoria_serial_30_testes.json) | **Auditoria (Dados)** | **Registro Estruturado para CI/CD:** Contém as mesmas métricas em formato JSON estruturado, incluindo taxa de aprovação percentual (100.0%) e parâmetros da máquina para auditoria automatizada. |
+| [**`painel_auditoria_serial.png`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/audit/painel_auditoria_serial.png) | **Auditoria (Imagem)** | **Painel Gráfico Consolidado:** Imagem gerada com Matplotlib apresentando o gráfico de controle de erro máximo ao longo dos 30 testes contra a linha de tolerância de Higham, o histograma de ULPs e o gráfico de latência por matriz. |
+| [**`arquitetura.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/arquitetura.md) | **Documentação** | **Especificação Teórica e Arquitetural:** Fundamenta matematicamente a inviabilidade de alocar 24,3 KB em 8 KB de RAM, deduz o orçamento de memória do *Tile-Strip Streaming*, detalha a pinagem física da USART2 e apresenta os diagramas de sequência. |
+| [**`tutorial.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/tutorial.md) | **Documentação** | **Guia Prático de Bancada:** Tutorial com o passo a passo de configuração gráfica dos periféricos no STM32CubeMX (`.ioc`), configuração de clock, compilação no CubeIDE e comandos de disparo no VS Code. |
+
+---
+
+## 5. Protocolo Serial Simplificado de Alta Performance
+
+A comunicação opera de forma direta em regime de **Request-Response** síncrono:
+
+| Comando | Origem $\rightarrow$ Destino | Payload Enviado | Resposta da Placa | Descrição da Operação |
+| :---: | :---: | :---: | :---: | :--- |
+| **`'P'`** (`0x50`) | Host $\rightarrow$ STM32 | *(vazio)* | **`'O'`** (`0x4F`) | **CMD_PING:** Handshake inicial de conectividade e sincronismo da porta serial. |
+| **`'A'`** (`0x41`) | Host $\rightarrow$ STM32 | `[bi: 1B]` + `[bi * 45 floats]` (até 1.440 B) | **`'K'`** (`0x4B`) | **CMD_STRIP_A:** Transmite a faixa horizontal de $A$. A placa armazena e confirma com `'K'`. |
+| **`'B'`** (`0x42`) | Host $\rightarrow$ STM32 | `[bj: 1B]` + `[45 * bj floats]` (até 1.440 B) | `[bi * bj floats]` (até 256 B) | **CMD_BLOCK_B:** Transmite bloco de colunas de $B$. STM32 calcula e devolve o bloco de $C$. |
+
+---
+
+## 6. Orçamento de Memória SRAM (NUCLEO-F030R8: 8 KB)
+
+| Estrutura de Memória | Tamanho Máximo | Função e Alocação |
+| :--- | :---: | :--- |
+| `buffer_A[8 * 45]` | 1.440 bytes | Faixa horizontal ativa da matriz $A$ na SRAM |
+| `buffer_B[45 * 8]` | 1.440 bytes | Sub-bloco vertical recebido da matriz $B$ |
+| `bloco_C_res[8 * 8]` | 256 bytes | Sub-bloco resultante sendo acumulado e transmitido |
+| Pilha do Sistema (*Stack*) | 1.024 bytes | Pilha de chamadas de funções da CPU ARM |
+| **Total Alocado** | **~4.160 bytes** | **Mais de 4.000 bytes livres (50% de margem de folga!)** |
+
+---
+
+## 7. Como Executar a Bateria dos 30 Testes
+
+### No Terminal do VS Code:
+```powershell
+# Modo de simulação offline (sem necessidade de placa física):
+python src_t2/runner_serial.py --simular
+
+# Modo com placa NUCLEO-F030R8 conectada na porta USB:
+python src_t2/runner_serial.py
+```
+
+### Exemplo de Saída em Tempo Real:
+```text
+================================================================================
+CO-PROCESSADOR SERIAL SIMPLIFICADO: STM32 HIL (STREAMING POR BLOCOS)
+================================================================================
+[*] Conectando à placa física na porta COM7 a 460800 bps...
+[OK] Conexão com NUCLEO-F030R8 estabelecida com sucesso!
+
+Iniciando execução contínua de 30 conjuntos de matrizes (45x45 float32):
+--------------------------------------------------------------------------------
+  -> Teste 01/30 | Tempo:    0.6 ms | Erro Máx: 1.525879e-04 | ULPs: 2.50 | [APROVADO]
+  -> Teste 02/30 | Tempo:    0.4 ms | Erro Máx: 1.220703e-04 | ULPs: 2.00 | [APROVADO]
+  ...
+  -> Teste 30/30 | Tempo:    0.4 ms | Erro Máx: 1.220703e-04 | ULPs: 2.00 | [APROVADO]
+
+================================================================================
+RELATÓRIO CONSOLIDADO: 30/30 TESTES APROVADOS (100.0%)
+Tempo Total: 0.03 s (Média: 1.1 ms por matriz)
+Relatório CSV salvo em:  src_t2/audit/auditoria_serial_30_testes.csv
+Relatório JSON salvo em: src_t2/audit/auditoria_serial_30_testes.json
+================================================================================
+```
+
+---
+
+## 8. Auditoria Gráfica no Jupyter Notebook
+
+Abra [`src_t2/framework_testes.ipynb`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/framework_testes.ipynb) no VS Code e execute para visualizar os mapas de controle estatístico, dispersão de resíduos e histogramas de ULPs de toda a bateria de testes.

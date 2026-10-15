@@ -1,0 +1,279 @@
+{
+  "total_testes": 30,
+  "aprovados": 30,
+  "taxa_aprovacao_pct": 100.0,
+  "tempo_total_s": 0.03,
+  "tolerancia_atol": 0.001,
+  "resultados": [
+    {
+      "teste_id": 1,
+      "tempo_ms": 0.59,
+      "l_inf": 0.000152587890625,
+      "mae": 1.232290014741011e-05,
+      "frob_ppm": 0.101,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 2,
+      "tempo_ms": 0.42,
+      "l_inf": 0.0001220703125,
+      "mae": 1.2827228601963725e-05,
+      "frob_ppm": 0.104,
+      "desvio_ulps": 2.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 3,
+      "tempo_ms": 0.41,
+      "l_inf": 0.0001220703125,
+      "mae": 1.1870942216773983e-05,
+      "frob_ppm": 0.101,
+      "desvio_ulps": 2.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 4,
+      "tempo_ms": 0.41,
+      "l_inf": 0.000152587890625,
+      "mae": 1.1925329090445302e-05,
+      "frob_ppm": 0.103,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 5,
+      "tempo_ms": 0.41,
+      "l_inf": 0.000152587890625,
+      "mae": 1.2298572073632386e-05,
+      "frob_ppm": 0.105,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 6,
+      "tempo_ms": 0.39,
+      "l_inf": 0.000152587890625,
+      "mae": 1.2442079423635732e-05,
+      "frob_ppm": 0.102,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 7,
+      "tempo_ms": 0.43,
+      "l_inf": 0.00018310546875,
+      "mae": 1.2173811228421982e-05,
+      "frob_ppm": 0.106,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 8,
+      "tempo_ms": 0.4,
+      "l_inf": 0.000152587890625,
+      "mae": 1.2342223271843977e-05,
+      "frob_ppm": 0.103,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 9,
+      "tempo_ms": 0.39,
+      "l_inf": 0.000244140625,
+      "mae": 1.287635495827999e-05,
+      "frob_ppm": 0.104,
+      "desvio_ulps": 2.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 10,
+      "tempo_ms": 0.39,
+      "l_inf": 0.0001220703125,
+      "mae": 1.2314216291997582e-05,
+      "frob_ppm": 0.105,
+      "desvio_ulps": 1.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 11,
+      "tempo_ms": 0.39,
+      "l_inf": 0.00018310546875,
+      "mae": 1.208468347613234e-05,
+      "frob_ppm": 0.102,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 12,
+      "tempo_ms": 0.4,
+      "l_inf": 0.000152587890625,
+      "mae": 1.2182284081063699e-05,
+      "frob_ppm": 0.104,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 13,
+      "tempo_ms": 0.41,
+      "l_inf": 0.00018310546875,
+      "mae": 1.279619027627632e-05,
+      "frob_ppm": 0.108,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 14,
+      "tempo_ms": 0.4,
+      "l_inf": 0.00018310546875,
+      "mae": 1.2829215847887099e-05,
+      "frob_ppm": 0.104,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 15,
+      "tempo_ms": 0.39,
+      "l_inf": 0.000244140625,
+      "mae": 1.2172957212897018e-05,
+      "frob_ppm": 0.106,
+      "desvio_ulps": 4.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 16,
+      "tempo_ms": 0.38,
+      "l_inf": 0.00018310546875,
+      "mae": 1.2504369806265458e-05,
+      "frob_ppm": 0.106,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 17,
+      "tempo_ms": 0.41,
+      "l_inf": 0.000152587890625,
+      "mae": 1.2448970664991066e-05,
+      "frob_ppm": 0.103,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 18,
+      "tempo_ms": 0.4,
+      "l_inf": 0.000152587890625,
+      "mae": 1.1702996744133998e-05,
+      "frob_ppm": 0.097,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 19,
+      "tempo_ms": 0.4,
+      "l_inf": 0.00018310546875,
+      "mae": 1.2260984476597514e-05,
+      "frob_ppm": 0.102,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 20,
+      "tempo_ms": 0.41,
+      "l_inf": 0.000152587890625,
+      "mae": 1.1887108485097997e-05,
+      "frob_ppm": 0.104,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 21,
+      "tempo_ms": 0.4,
+      "l_inf": 0.00018310546875,
+      "mae": 1.2535088899312541e-05,
+      "frob_ppm": 0.109,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 22,
+      "tempo_ms": 0.41,
+      "l_inf": 0.00018310546875,
+      "mae": 1.246748161065625e-05,
+      "frob_ppm": 0.105,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 23,
+      "tempo_ms": 0.38,
+      "l_inf": 0.000152587890625,
+      "mae": 1.2024907846353017e-05,
+      "frob_ppm": 0.106,
+      "desvio_ulps": 2.5,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 24,
+      "tempo_ms": 0.39,
+      "l_inf": 0.00018310546875,
+      "mae": 1.2669773241213989e-05,
+      "frob_ppm": 0.107,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 25,
+      "tempo_ms": 0.39,
+      "l_inf": 0.00018310546875,
+      "mae": 1.1973034816037398e-05,
+      "frob_ppm": 0.105,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 26,
+      "tempo_ms": 0.41,
+      "l_inf": 0.0001220703125,
+      "mae": 1.2195823728688993e-05,
+      "frob_ppm": 0.098,
+      "desvio_ulps": 2.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 27,
+      "tempo_ms": 0.42,
+      "l_inf": 0.0001373291015625,
+      "mae": 1.188977239507949e-05,
+      "frob_ppm": 0.1,
+      "desvio_ulps": 2.25,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 28,
+      "tempo_ms": 0.38,
+      "l_inf": 0.00018310546875,
+      "mae": 1.2243853234394919e-05,
+      "frob_ppm": 0.105,
+      "desvio_ulps": 3.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 29,
+      "tempo_ms": 0.43,
+      "l_inf": 0.000244140625,
+      "mae": 1.2412388059601653e-05,
+      "frob_ppm": 0.104,
+      "desvio_ulps": 4.0,
+      "status": "APROVADO"
+    },
+    {
+      "teste_id": 30,
+      "tempo_ms": 5.2,
+      "l_inf": 0.0001220703125,
+      "mae": 1.1914867172890808e-05,
+      "frob_ppm": 0.101,
+      "desvio_ulps": 2.0,
+      "status": "APROVADO"
+    }
+  ]
+}
