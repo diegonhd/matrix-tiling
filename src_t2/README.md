@@ -2,7 +2,7 @@
 
 > **Diretório:** `src_t2/`  
 > **Plataforma Alvo:** NUCLEO-F030R8 / STM32F030R8T6 (ARM Cortex-M0, **8 KB SRAM nativa**, 64 KB Flash)  
-> **Comunicação:** USART2 (PA2=TX, PA3=RX) a **460.800 bps** via ST-LINK Virtual COM Port (VCP)  
+> **Comunicação:** USART2 (PA2=TX, PA3=RX) a **460.800 bps** com transferência pesada acelerada por **DMA** via ST-LINK Virtual COM Port (VCP)  
 > **Estratégia de Memória:** **Tile-Strip Streaming** ($B=8$) mantendo o consumo de SRAM em apenas **~3,1 KB**  
 > **Automação de Testes:** Execução contínua dos **30 conjuntos de matrizes** ($45 \times 45$, `float32`) com validação NumPy em tempo real.
 
@@ -23,12 +23,14 @@ O firmware transforma a placa **NUCLEO-F030R8** em um co-processador matemático
 +-----------------------------------------------------------------------------------------+
                                            |   ^
                     Streaming Serial USB   |   |  Sub-bloco Resultante C[8][8]
-                    (Baud: 460.800 bps)    v   |  (apenas 256 bytes)
+                    (Baud: 460.800 bps)    v   |  (via UART TX acelerado por DMA)
 +-----------------------------------------------------------------------------------------+
 |                              NUCLEO-F030R8 (ARM Cortex-M0)                              |
 |                                                                                         |
 |  - ST-LINK VCP (PA2/PA3 USART2)                                                         |
-|  - Loop de escuta direto: comandos 'P' (Ping), 'A' (Faixa A) e 'B' (Bloco B)            |
+|  - Canal Físico: USART2 (460.800 bps)                                                   |
+|  - Movimentação de Dados: DMA (Canais 4 e 5 do DMA1 para RX e TX de matrizes)          |
+|  - Loop de escuta: Comandos 'P' (Ping), 'A' (Faixa A via DMA) e 'B' (Bloco B via DMA)  |
 |  - Motor de Tiling Streaming: acumula sub-bloco de C[8][8] em apenas 256 B de SRAM      |
 |  - Consumo total de RAM: ~3,1 KB (quase 5 KB livres na SRAM nativa de 8 KB)             |
 |  - Sinalização por LED LD2 (PA5): pulsa em atividade serial, fixo em repouso            |
@@ -37,7 +39,39 @@ O firmware transforma a placa **NUCLEO-F030R8** em um co-processador matemático
 
 ---
 
-## 2. Estrutura Modular da Árvore (*Worktree*) de `src_t2/`
+## 2. Mecanismo de Transferência: UART Física vs. Movimentação por DMA
+
+> [!IMPORTANT]
+> **Como os dados trafegam entre PC e Microcontrolador?**  
+> A transferência combina **UART** como interface física de comunicação externa e **DMA** como motor de movimentação direta de memória dentro do microcontrolador.
+
+### 2.1 Interface Física Externa: **UART (USART2)**
+* **Canal e Pinos:** O fluxo serial trafega pelos pinos `PA2` (USART2_TX) e `PA3` (USART2_RX) da placa NUCLEO-F030R8.
+* **Transmissão USB:** Esses pinos conectam-se internamente ao circuito integrado do programador ST-LINK v2.1, que encapsula a UART em uma porta serial virtual USB (*Virtual COM Port - VCP*, ex: `COM7`), eliminando a necessidade de adaptadores USB-Serial externos.
+* **Velocidade:** Configurada a **460.800 bps** (ou 115.200 bps de fallback) com formatação 8N1 (8 bits de dados, sem paridade, 1 stop bit).
+
+### 2.2 Movimentação de Dados em Massa: **DMA (Direct Memory Access)**
+* **Por que DMA?** A uma taxa de 460.800 bps, um byte chega a cada ~21,7 µs. Se o núcleo ARM Cortex-M0 (sem FPU) tratasse cada byte por interrupção simples de software, o overhead de troca de contexto geraria gargalos severos de CPU e risco iminente de perda de dados (*RX Overrun Error - ORE*).
+* **Operação no Firmware:**
+  * **Recepção de Faixas de $A$ e Blocos de $B$:** Assim que o comando é decodificado, o firmware arma o canal de recepção com [`HAL_UART_Receive_DMA()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L106). O controlador **DMA1 (Canal 5)** desvia os bytes de ponto flutuante diretamente do registrador `USART2->RDR` para o `buffer_A` ou `buffer_B` na SRAM, sem intervenção da CPU.
+  * **Transmissão do Bloco $C$:** Ao término do produto particionado, o sub-bloco resultante (até 256 bytes) é despachado via [`HAL_UART_Transmit_DMA()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L144) pelo **DMA1 (Canal 4)** diretamente da SRAM para `USART2->TDR`.
+  * **Notificação por Callbacks:** Ao concluir o número programado de bytes, o subsistema DMA dispara as interrupções de hardware `HAL_UART_RxCpltCallback` ou `HAL_UART_TxCpltCallback`, liberando os laços de sincronismo do firmware.
+
+### 2.3 Bytes de Controle e Sinalização: **UART Direta (Polling)**
+* Bytes únicos de sinalização e handshake que exigem baixa latência de decisão imediata (como `'P'` de Ping, `'A'`, `'B'` e os caracteres de confirmação `'O'` e `'K'`) utilizam `HAL_UART_Receive()` e `HAL_UART_Transmit()` por polling simples na USART2.
+
+| Etapa do Fluxo | Dado Trafegado | Interface de Comunicação | Mecanismo de Movimentação | Função da CPU |
+| :--- | :---: | :---: | :---: | :--- |
+| **Ping / Handshake** | `'P'` e `'O'` (1 byte) | USART2 (VCP) | UART Polling direto | Decodifica e responde imediatamente |
+| **Envio da Faixa $A$** | $bi \times 45$ floats (até 1.440 B) | USART2 (VCP) | **DMA1 Canal 5 (RX)** | Totalmente desonerada durante o tráfego |
+| **Confirmação Faixa $A$** | `'K'` (1 byte) | USART2 (VCP) | UART Polling direto | Confirma integridade |
+| **Envio do Bloco $B$** | $45 \times bj$ floats (até 1.440 B) | USART2 (VCP) | **DMA1 Canal 5 (RX)** | Totalmente desonerada durante o tráfego |
+| **Cálculo de $C$** | Sub-bloco $bi \times bj$ | Local (SRAM) | - | Executa laços de Tiling na SRAM (256 B) |
+| **Retorno do Bloco $C$** | $bi \times bj$ floats (até 256 B) | USART2 (VCP) | **DMA1 Canal 4 (TX)** | CPU liberada enquanto o DMA transmite |
+
+---
+
+## 3. Estrutura Modular da Árvore (*Worktree*) de `src_t2/`
 
 ```text
 src_t2/
@@ -69,7 +103,7 @@ src_t2/
 
 ---
 
-### 3. Fluxo de Execução do Pipeline HIL (Abstração por Etapas)
+## 4. Fluxo de Execução do Pipeline HIL (Abstração por Etapas)
 
 O ciclo de execução contínua entre o **Host PC** e o **STM32** opera de forma síncrona (*Hardware-in-the-Loop*), dividido em 8 etapas conceituais:
 
@@ -85,7 +119,7 @@ O ciclo de execução contínua entre o **Host PC** e o **STM32** opera de forma
 * **Conceito:** Antes de trafegar matrizes, o Host testa a conectividade da porta serial USB enviando um *ping* (`'P'`). O STM32 responde com confirmação imediata (`'O'`) e pisca o LED de status `LD2`.
 * 📍 **Onde se aprofundar:**
   - Host: [`auto_detectar_porta_stlink()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L33-L43) e handshake em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L116-L126) em `runner_serial.py`.
-  - Firmware: Resposta ao `CMD_PING` em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L70-L74) em `main.c`.
+  - Firmware: Resposta ao `CMD_PING` em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L90-L94) em `main.c`.
 
 ---
 
@@ -96,26 +130,26 @@ O ciclo de execução contínua entre o **Host PC** e o **STM32** opera de forma
 
 ---
 
-### Etapa 3: Fatiamento Horizontal (*Tile-Strip*) e Envio de $A$
-* **Conceito:** Como a matriz $A$ completa ($8{,}1\text{ KB}$) esgotaria a memória do microcontrolador ($8\text{ KB}$), ela é dividida em faixas horizontais de no máximo 8 linhas ($bi \le 8$). Cada faixa ($1.440\text{ bytes}$) é transmitida ao STM32, que a guarda na SRAM estática e responde com `ACK` (`'K'`).
+### Etapa 3: Fatiamento Horizontal (*Tile-Strip*) e Envio de $A$ via DMA
+* **Conceito:** Como a matriz $A$ completa ($8{,}1\text{ KB}$) esgotaria a memória do microcontrolador ($8\text{ KB}$), ela é dividida em faixas horizontais de no máximo 8 linhas ($bi \le 8$). Cada faixa ($1.440\text{ bytes}$) é transmitida ao STM32, que a transfere diretamente para a SRAM estática via **DMA1 Canal 5** (`HAL_UART_Receive_DMA`), confirmando ao final com `ACK` (`'K'`).
 * 📍 **Onde se aprofundar:**
   - Host: Laço externo de fatiamento em [`processar_matriz_remota()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L71-L81) em `runner_serial.py`.
-  - Firmware: Recepção UART e validação de `bi` em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L76-L91) em `main.c`, e gravação na SRAM em [`multi_tiling_set_faixa_A()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L34-L46) em `multi_tiling.c`.
+  - Firmware: Recepção do comando via polling e payload via DMA em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L96-L120) em `main.c`, e gravação na SRAM em [`multi_tiling_set_faixa_A()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L34-L46) em `multi_tiling.c`.
 
 ---
 
-### Etapa 4: Streaming de Sub-blocos Verticais de $B$ e Multiplicação
-* **Conceito:** Mantendo a faixa atual de $A$ em memória, o Host envia sucessivos blocos verticais de $B$ (de até 8 colunas, $bj \le 8$). O STM32 computa o produto matricial particionado do sub-bloco resultante $C[bi][bj]$ acumulando em um buffer de apenas **256 bytes**.
+### Etapa 4: Streaming de Sub-blocos Verticais de $B$ via DMA e Multiplicação
+* **Conceito:** Mantendo a faixa atual de $A$ em memória, o Host envia sucessivos blocos verticais de $B$ (de até 8 colunas, $bj \le 8$). A transferência de dados da USART2 para o `buffer_B` é realizada via **DMA1 Canal 5** (`HAL_UART_Receive_DMA`). O STM32 computa o produto matricial particionado do sub-bloco resultante $C[bi][bj]$ acumulando em um buffer de apenas **256 bytes**.
 * 📍 **Onde se aprofundar:**
   - Host: Transmissão dos blocos verticais em [`processar_matriz_remota()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L83-L90) em `runner_serial.py`.
-  - Firmware: Algoritmo de Tiling com particionamento na dimensão interna $K$ em [`multi_tiling_computar_bloco()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L74-L120) em `multi_tiling.c`.
+  - Firmware: Recepção DMA em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L124-L137) e algoritmo de Tiling em [`multi_tiling_computar_bloco()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L74-L120) em `multi_tiling.c`.
 
 ---
 
-### Etapa 5: Devolução Imediata do Bloco $C$ Calculado
-* **Conceito:** O microcontrolador não armazena a matriz $C$ inteira. Assim que cada sub-bloco de até $8 \times 8$ floats termina de ser calculado, ele é devolvido imediatamente via UART serial para o computador.
+### Etapa 5: Devolução Imediata do Bloco $C$ Calculado via DMA
+* **Conceito:** O microcontrolador não armazena a matriz $C$ inteira. Assim que cada sub-bloco de até $8 \times 8$ floats termina de ser calculado, ele é devolvido imediatamente via **DMA1 Canal 4** (`HAL_UART_Transmit_DMA`) pela serial para o computador, liberando a CPU para o próximo bloco.
 * 📍 **Onde se aprofundar:**
-  - Firmware: Chamada `HAL_UART_Transmit` em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L106-L107) em `main.c`.
+  - Firmware: Despacho não-bloqueante por DMA em [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L141-L151) em `main.c`.
 
 ---
 
@@ -141,7 +175,7 @@ O ciclo de execução contínua entre o **Host PC** e o **STM32** opera de forma
 
 ---
 
-## 4. Função e Responsabilidade de Cada Arquivo no Processo
+## 5. Função e Responsabilidade de Cada Arquivo no Processo
 
 Cada arquivo em `src_t2/` possui uma responsabilidade estrita dentro da arquitetura de co-processador:
 
@@ -163,19 +197,19 @@ Cada arquivo em `src_t2/` possui uma responsabilidade estrita dentro da arquitet
 
 ---
 
-## 5. Protocolo Serial Simplificado de Alta Performance
+## 6. Protocolo Serial Simplificado de Alta Performance
 
 A comunicação opera de forma direta em regime de **Request-Response** síncrono:
 
 | Comando | Origem $\rightarrow$ Destino | Payload Enviado | Resposta da Placa | Descrição da Operação |
 | :---: | :---: | :---: | :---: | :--- |
 | **`'P'`** (`0x50`) | Host $\rightarrow$ STM32 | *(vazio)* | **`'O'`** (`0x4F`) | **CMD_PING:** Handshake inicial de conectividade e sincronismo da porta serial. |
-| **`'A'`** (`0x41`) | Host $\rightarrow$ STM32 | `[bi: 1B]` + `[bi * 45 floats]` (até 1.440 B) | **`'K'`** (`0x4B`) | **CMD_STRIP_A:** Transmite a faixa horizontal de $A$. A placa armazena e confirma com `'K'`. |
-| **`'B'`** (`0x42`) | Host $\rightarrow$ STM32 | `[bj: 1B]` + `[45 * bj floats]` (até 1.440 B) | `[bi * bj floats]` (até 256 B) | **CMD_BLOCK_B:** Transmite bloco de colunas de $B$. STM32 calcula e devolve o bloco de $C$. |
+| **`'A'`** (`0x41`) | Host $\rightarrow$ STM32 | `[bi: 1B]` + `[bi * 45 floats]` (até 1.440 B) | **`'K'`** (`0x4B`) | **CMD_STRIP_A:** Transmite a faixa horizontal de $A$ via DMA. A placa armazena e confirma com `'K'`. |
+| **`'B'`** (`0x42`) | Host $\rightarrow$ STM32 | `[bj: 1B]` + `[45 * bj floats]` (até 1.440 B) | `[bi * bj floats]` (até 256 B) | **CMD_BLOCK_B:** Transmite bloco de colunas de $B$ via DMA. STM32 calcula e devolve o bloco de $C$ via DMA. |
 
 ---
 
-## 6. Orçamento de Memória SRAM (NUCLEO-F030R8: 8 KB)
+## 7. Orçamento de Memória SRAM (NUCLEO-F030R8: 8 KB)
 
 | Estrutura de Memória | Tamanho Máximo | Função e Alocação |
 | :--- | :---: | :--- |
@@ -187,7 +221,7 @@ A comunicação opera de forma direta em regime de **Request-Response** síncron
 
 ---
 
-## 7. Como Executar a Bateria dos 30 Testes
+## 8. Como Executar a Bateria dos 30 Testes
 
 ### No Terminal do VS Code:
 ```powershell
@@ -223,6 +257,6 @@ Relatório JSON salvo em: src_t2/audit/auditoria_serial_30_testes.json
 
 ---
 
-## 8. Auditoria Gráfica no Jupyter Notebook
+## 9. Auditoria Gráfica no Jupyter Notebook
 
 Abra [`src_t2/framework_testes.ipynb`](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/framework_testes.ipynb) no VS Code e execute para visualizar os mapas de controle estatístico, dispersão de resíduos e histogramas de ULPs de toda a bateria de testes.

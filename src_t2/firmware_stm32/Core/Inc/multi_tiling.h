@@ -33,6 +33,7 @@
  * - Sub-bloco de B:   45 linhas x 8 colunas x 4 B = 1.440 bytes
  * - Bloco C de saída: 8 linhas x 8 colunas x 4 B = 256 bytes
  * TOTAL DE RAM UTILIZADA = ~3.136 bytes (< 40% da SRAM de 8 KB).
+ * 
  */
 #define BLOCK  8
 

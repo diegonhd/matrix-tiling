@@ -73,7 +73,9 @@ def processar_matriz_remota(porta, A: np.ndarray, B: np.ndarray) -> np.ndarray:
         faixa_A = A[ii:ii + bi, :].astype(np.float32)
 
         # Envia: 'A' + [bi] + [bytes da faixa]
-        porta.write(CMD_STRIP_A + bytes([bi]) + faixa_A.tobytes()) # No protocolo.h
+        porta.write(CMD_STRIP_A + bytes([bi]))
+        time.sleep(0.001)
+        porta.write(faixa_A.tobytes())
         
         # Aguarda confirmação 'K'
         ack = ler_exato(porta, 1) # Primeiro bit do 
@@ -86,7 +88,9 @@ def processar_matriz_remota(porta, A: np.ndarray, B: np.ndarray) -> np.ndarray:
             sub_B = B[:, jj:jj + bj].astype(np.float32)
 
             # Envia: 'B' + [bj] + [bytes do bloco]
-            porta.write(CMD_BLOCK_B + bytes([bj]) + sub_B.tobytes())
+            porta.write(CMD_BLOCK_B + bytes([bj]))
+            time.sleep(0.001)
+            porta.write(sub_B.tobytes())
 
             # Recebe exatamente bi * bj floats calculados (em bytes)
             qtd_bytes = bi * bj * 4
@@ -104,7 +108,7 @@ def main():
     parser.add_argument("--port", type=str, default=None, help="Porta serial (ex: COM7)")
     parser.add_argument("--baud", type=int, default=BAUD_RATE_PADRAO, help="Baud rate (default: 460800)")
     parser.add_argument("--testes", type=int, default=30, help="Quantidade de testes (default: 30)")
-    args = parser.paargsrse_args()
+    args = parser.parse_args()
 
     porta_nome = args.port or auto_detectar_porta_stlink()
 
@@ -116,12 +120,14 @@ def main():
     print(f"[*] Conectando à placa física na porta {porta_nome} a {args.baud} bps...")
     try:
         porta = serial.Serial(porta_nome, args.baud, timeout=2.0)
-        time.sleep(0.05)
+        time.sleep(0.1)
+        porta.reset_input_buffer()
+        porta.reset_output_buffer()
         # Envia PING ('P') e espera resposta ('O')
         porta.write(CMD_PING)
-        resp = ler_exato(porta, 1, timeout_s=1.0)
+        resp = ler_exato(porta, 1, timeout_s=3.0)
         if resp != RESP_OK:
-            print("[AVISO] Resposta inesperada ao PING ({resp}).")
+            print(f"[AVISO] Resposta inesperada ao PING ({resp}).")
         else:
             print("[OK] Conexão com NUCLEO-F030R8 estabelecida com sucesso!")
     except Exception as e:

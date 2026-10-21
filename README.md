@@ -71,15 +71,19 @@ jupyter execute src_t1/framework_testes.ipynb
 
 O pipeline da Tarefa 2 transporta a carga de trabalho para um microcontrolador com apenas **8 KB de SRAM**, utilizando o protocolo serial de *Tile-Strip Streaming* para nunca exceder a memória física da placa:
 
+> [!NOTE]
+> **Canal de Comunicação e Mecanismo de Transferência:**  
+> A transmissão física ocorre via **UART (USART2 a 460.800 bps)** pelo cabo USB (ST-LINK VCP). Internamente no microcontrolador, todo o transporte em massa de dados (faixas de $A$, blocos de $B$ e blocos de $C$) é gerenciado pelo controlador **DMA (Direct Memory Access - Canais 4 e 5 do DMA1)**, garantindo que o núcleo Cortex-M0 não sofra sobrecarga de interrupção nem perda de dados (*overrun*).
+
 1. **Fase 1: Inicialização e Handshake Serial:**
    - O microcontrolador NUCLEO-F030R8 roda o firmware bare-metal [`main.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c) e aguarda comandos na USART2 a 460.800 bps.
    - O orquestrador host [`runner_serial.py`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py) detecta a porta COM via [`auto_detectar_porta_stlink()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L33-L43) e envia o *ping* `'P'`, aguardando a resposta `'O'` para validar a integridade do canal.
-2. **Fase 2: Streaming de Matrizes por Faixas e Blocos:**
-   - Para cada um dos 30 testes em [`src_t1/input_matrix/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/input_matrix/), o Host envia a matriz $A$ fatiada em faixas horizontais de 8 linhas (`CMD_STRIP_A` + 1.440 bytes). O STM32 confirma o recebimento com `'K'`.
-   - Em seguida, o Host envia sucessivos blocos verticais de $B$ (`CMD_BLOCK_B` + 1.440 bytes).
-3. **Fase 3: Computação no Silício com Buffer Ultra-Reduzido:**
+2. **Fase 2: Streaming de Matrizes por Faixas e Blocos via DMA:**
+   - Para cada um dos 30 testes em [`src_t1/input_matrix/`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/input_matrix/), o Host envia a matriz $A$ fatiada em faixas horizontais de 8 linhas (`CMD_STRIP_A` + 1.440 bytes). O STM32 recebe o payload via DMA1 Canal 5 diretamente na SRAM e confirma o recebimento com `'K'`.
+   - Em seguida, o Host envia sucessivos blocos verticais de $B$ (`CMD_BLOCK_B` + 1.440 bytes), também recebidos via DMA.
+3. **Fase 3: Computação no Silício e Retorno via DMA:**
    - O módulo [`multi_tiling.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c) processa e acumula o produto dos blocos em um buffer de saída de apenas $8 \times 8$ floats (**256 bytes em SRAM**).
-   - O resultado de cada bloco é transmitido de volta para o Host imediatamente pela serial.
+   - O resultado de cada bloco é transmitido de volta para o Host via DMA1 Canal 4 imediatamente pela serial.
 4. **Fase 4: Reconstrução Matricial e Gravação de `C.bin`:**
    - O Host recebe os blocos calculados e monta a matriz completa $45 \times 45$ em memória, gravando o arquivo binário consolidado [`C.bin`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/C.bin) na raiz do projeto.
 5. **Fase 5: Validação Metrológica Tripla em Tempo Real:**
