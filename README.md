@@ -123,6 +123,7 @@ matrix-tiling/
     ├── README.md                       # Especificação da T2 e arquitetura de co-processador serial
     ├── arquitetura.md                  # Especificação formal da arquitetura serial HIL
     ├── tutorial.md                     # Guia passo a passo de pinagem, USART2 DMA e execução
+    ├── dificuldades_e_solucoes.md      # Resumo dos desafios de engenharia, soluções e locais no código
     ├── runner_serial.py                # Script Host Python: orquestra envio dos 30 testes e validação
     ├── protocolo_serial.py             # Módulo de frames binários e cálculo de CRC-16 no Python
     ├── framework_testes.ipynb          # Auditoria gráfica e análise estatística dos 30 testes

@@ -78,6 +78,7 @@ src_t2/
 ├── README.md                           # Especificação técnica, etapas e papéis de cada arquivo
 ├── arquitetura.md                      # Especificação formal da arquitetura serial HIL
 ├── tutorial.md                         # Guia prático passo a passo de pinagem, CubeMX e execução
+├── dificuldades_e_solucoes.md          # Resumo de todos os desafios de engenharia, soluções e locais no código
 ├── runner_serial.py                    # Orquestrador Host Python: gerencia porta serial e os 30 testes
 ├── protocolo_serial.py                 # Módulo de protocolo serial simplificado (comandos 'P', 'A', 'B')
 ├── framework_testes.ipynb              # Caderno Jupyter de auditoria gráfica e análise estatística
@@ -194,6 +195,7 @@ Cada arquivo em `src_t2/` possui uma responsabilidade estrita dentro da arquitet
 | [**`painel_auditoria_serial.png`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/audit/painel_auditoria_serial.png) | **Auditoria (Imagem)** | **Painel Gráfico Consolidado:** Imagem gerada com Matplotlib apresentando o gráfico de controle de erro máximo ao longo dos 30 testes contra a linha de tolerância de Higham, o histograma de ULPs e o gráfico de latência por matriz. |
 | [**`arquitetura.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/arquitetura.md) | **Documentação** | **Especificação Teórica e Arquitetural:** Fundamenta matematicamente a inviabilidade de alocar 24,3 KB em 8 KB de RAM, deduz o orçamento de memória do *Tile-Strip Streaming*, detalha a pinagem física da USART2 e apresenta os diagramas de sequência. |
 | [**`tutorial.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/tutorial.md) | **Documentação** | **Guia Prático de Bancada:** Tutorial com o passo a passo de configuração gráfica dos periféricos no STM32CubeMX (`.ioc`), configuração de clock, compilação no CubeIDE e comandos de disparo no VS Code. |
+| [**`dificuldades_e_solucoes.md`**](file:///C:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/dificuldades_e_solucoes.md) | **Documentação** | **Desafios e Soluções de Engenharia:** Resumo minucioso de todas as dificuldades técnicas (estouro de 8 KB de RAM, DMA vs UART a 460.800 bps, falta de FPU, bordas de $N=45$, sincronismo serial USB) com suas soluções e referências exatas no código. |
 
 ---
 
