@@ -125,17 +125,15 @@ matrix-tiling/
     ├── tutorial.md                     # Guia passo a passo de pinagem, USART2 DMA e execução
     ├── dificuldades_e_solucoes.md      # Resumo dos desafios de engenharia, soluções e locais no código
     ├── runner_serial.py                # Script Host Python: orquestra envio dos 30 testes e validação
-    ├── protocolo_serial.py             # Módulo de frames binários e cálculo de CRC-16 no Python
+    ├── protocolo_serial.py             # Módulo de protocolo serial simplificado (comandos 'P', 'A', 'B')
     ├── framework_testes.ipynb          # Auditoria gráfica e análise estatística dos 30 testes
-    ├── audit/                          # Relatórios formais gerados (CSV, JSON, gráficos)
-    │   ├── auditoria_serial_30_testes.csv
-    │   ├── auditoria_serial_30_testes.json
-    │   └── painel_auditoria_serial.png
+    ├── audit/                          # Relatórios formais gerados (CSV com métricas dos 30 testes)
+    │   └── auditoria_serial_30_testes.csv
     └── firmware_stm32/                 # Firmware Bare-Metal para NUCLEO-F030R8 (C / HAL)
         ├── STM32F030R8TX_FLASH.ld      # Linker script oficial (8 KB RAM, 64 KB Flash)
         └── Core/
-            ├── Inc/ (main.h, protocolo.h, multi_tiling.h)
-            └── Src/ (main.c, protocolo.c, multi_tiling.c)
+            ├── Inc/ (main.h, protocolo.h, multi_tiling.h, stm32f0xx_it.h)
+            └── Src/ (main.c, protocolo.c, multi_tiling.c, stm32f0xx_hal_msp.c, stm32f0xx_it.c)
 ```
 
 ---
@@ -168,7 +166,7 @@ Para explorar diretamente as implementações sem se perder nos detalhes:
   - [`auto_detectar_porta_stlink()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L33-L43) — Localiza automaticamente a placa conectada na USB.
   - [`processar_matriz_remota()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/runner_serial.py#L62-L99) — Fatia a matriz $A$ em faixas, envia blocos de $B$ e reconstrói $C$.
 * **Loop de Comandos no Silício:** [`main.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c)
-  - [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L35-L113) — Inicialização de hardware, USART2 e máquina de estados para `'P'`, `'A'` e `'B'`.
+  - [`main()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/main.c#L63-L159) — Inicialização de hardware (clock 48 MHz, DMA1, USART2) e loop de escuta para `'P'`, `'A'` e `'B'`.
 * **Motor de Tiling Embarcado:** [`multi_tiling.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c)
   - [`multi_tiling_set_faixa_A()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L34-L46) — Grava a fatia ativa de $A$ na SRAM com proteção de limites.
   - [`multi_tiling_computar_bloco()`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t2/firmware_stm32/Core/Src/multi_tiling.c#L74-L120) — Multiplica e acumula o bloco $8 \times 8$ em apenas 256 bytes de memória.
