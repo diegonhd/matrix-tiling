@@ -1,12 +1,51 @@
 /**
- ******************************************************************************
- * @file           : main.h
- * @brief          : Cabeçalho principal com mapeamento de hardware da placa
- *                   NUCLEO-F030R8 (MCU: STM32F030R8T6, ARM Cortex-M0).
- *                   Define pinos de GPIO, periféricos de comunicação (USART2)
- *                   e estados lógicos do LED de telemetria.
- ******************************************************************************
+ * ============================================================================
+ * @file        main.h
+ * @brief       Cabeçalho principal com mapeamento de hardware da placa NUCLEO-F030R8.
+ *
+ * @details
+ * APRESENTAÇÃO GERAL DA APLICAÇÃO:
+ * Header que centraliza as definições de pinagem física da placa NUCLEO-F030R8,
+ * configurações de GPIO, periféricos de comunicação (USART2 via ST-LINK VCP) e
+ * estados lógicos do LED verde de telemetria LD2.
+ *
+ * ENTRADA E SAÍDA DE DADOS:
+ * - Entradas Físicas: USART2 RX (PA3) e Botão de Usuário B1 (PC13).
+ * - Saídas Físicas: USART2 TX (PA2) e LED Verde de Usuário LD2 (PA5).
+ *
+ * COMO USAR (HELP):
+ * 1. Inclua este cabeçalho nos módulos fonte: #include "main.h"
+ * 2. Utilize os identificadores simbólicos USART_TX_Pin, LD2_Pin etc.
+ *
+ * PLATAFORMA ALVO:
+ * - Microcontrolador: STMicroelectronics STM32F030R8T6 (ARM Cortex-M0 @ 48 MHz).
+ * - Placa: NUCLEO-F030R8 (MB1136).
+ *
+ * AUTORES / ESTUDANTES:
+ * Diego Amorim Vidal & André Queiroz Medeiros
+ *
+ * DATA:
+ * 31 de Outubro de 2026
+ *
+ * INDICAÇÃO DE ORIGEM DO CÓDIGO:
+ * - Código Gerado:  Mapeamento de pinagem física e macros de GPIO da placa NUCLEO-F030R8
+ *                   gerados pelo STM32CubeMX / STM32CubeIDE.
+ * - Código Próprio: Constantes adicionais de controle de LED de telemetria e documentação Doxygen.
+ * - Código Legado:  Inclusão de bibliotecas de periféricos da STMicroelectronics (stm32f0xx_hal.h).
+ *
+ * PERMISSÕES DE USO E COPYRIGHT:
+ * Copyright (c) 2026 Diego Amorim Vidal & André Queiroz Medeiros.
+ * Uso educacional e acadêmico livre mediante citação da fonte.
+ * ============================================================================
  */
+/*--------------------------------------------------------------
+--  #1.
+--  Date: Out, 2026
+--  Authors: Diego Amorim Vidal & André Queiroz Medeiros
+--  Motivo: Mapeamento de hardware da placa NUCLEO-F030R8 (MCU: STM32F030R8T6).
+--          Define pinos de GPIO, periféricos (USART2) e estados do LED LD2.
+-------------------------------------------------------------
+**/
 
 #ifndef __MAIN_H
 #define __MAIN_H
@@ -15,11 +54,6 @@
 extern "C" {
 #endif
 
-/* 
- * Inclusão condicional da camada HAL (Hardware Abstraction Layer) da ST.
- * Permite portabilidade entre as famílias STM32F0 (alvo deste projeto)
- * e STM32F1 caso haja migração de placa no futuro.
- */
 #if defined(STM32F030x8) || defined(STM32F0xx)
   #include "stm32f0xx_hal.h"
 #elif defined(STM32F103xB) || defined(STM32F1xx)
@@ -27,49 +61,30 @@ extern "C" {
 #endif
 
 /**
- * @brief Protótipo da rotina de captura de erros críticos de hardware.
- * Trava a CPU em loop infinito e desabilita interrupções se uma falha de clock
- * ou periférico for detectada durante a inicialização.
+ * @brief Tratador de exceções para falhas críticas de hardware e inicialização de periféricos.
+ *        Desativa todas as interrupções mascaráveis e trava a execução em laço infinito preventivo.
+ * 
+ * @param None (void).
+ * 
+ * @return void (Função divergente; não retorna).
+ * 
+ * @note Variáveis Globais Afetadas:
+ *       - Modifica o registrador de controle de interrupções da CPU ARM Cortex-M0 (PRIMASK),
+ *         desabilitando globalmente as interrupções via instrução __disable_irq().
+ *       Origem: Código gerado (STM32CubeMX / HAL).
  */
 void Error_Handler(void);
 
-/* =========================================================================
- * MAPEAMENTO FÍSICO DE PINOS DA PLACA NUCLEO-F030R8
- * ========================================================================= */
-
-/* 
- * Botão de Usuário B1 (Botão Azul):
- * Conectado ao pino PC13 com resistor de pull-up externo na placa.
- * Pressionar o botão gera nível lógico LOW (0).
- */
+// By Diego & André: #1. Mapeamento físico de pinos da NUCLEO-F030R8
 #define B1_Pin                 GPIO_PIN_13
 #define B1_GPIO_Port           GPIOC
 
-/* 
- * Linha de Transmissão Serial USART2 TX:
- * Conectada ao pino PA2. Na placa NUCLEO-F030R8, esse pino é roteado
- * internamente para o microcontrolador do ST-LINK (circuito de depuração on-board),
- * gerando a porta Virtual COM Port (VCP) vista no PC pelo cabo USB.
- */
 #define USART_TX_Pin           GPIO_PIN_2
 #define USART_TX_GPIO_Port     GPIOA
 
-/* 
- * Linha de Recepção Serial USART2 RX:
- * Conectada ao pino PA3. Roteada do ST-LINK VCP diretamente para o PA3,
- * recebendo comandos e blocos de dados enviados pelo Python (Host PC).
- */
 #define USART_RX_Pin           GPIO_PIN_3
 #define USART_RX_GPIO_Port     GPIOA
 
-/* 
- * LED de Usuário LD2 (LED Verde):
- * Conectado ao pino PA5.
- * Usado como indicador de status visual de bancada:
- * - 3 piscadas rápidas no boot (indica que a CPU reiniciou com sucesso).
- * - Aceso contínuo em repouso (indica prontidão para receber matrizes).
- * - Toggling (inversão rápida) durante o cálculo de matrizes para telemetria visual.
- */
 #define LD2_Pin                GPIO_PIN_5
 #define LD2_GPIO_Port          GPIOA
 
@@ -84,15 +99,11 @@ void Error_Handler(void);
   #define LED_STATUS_GPIO_Port GPIOA
 #endif
 
-/* 
- * Níveis lógicos de acionamento do LED LD2:
- * Na NUCLEO-F030R8, o catodo do LED é aterrado através de resistor,
- * logo nível ALTO (GPIO_PIN_SET) acende o LED e BAIXO (GPIO_PIN_RESET) apaga.
- */
 #ifndef LED_ON_STATE
   #define LED_ON_STATE         GPIO_PIN_SET
   #define LED_OFF_STATE        GPIO_PIN_RESET
 #endif
+// End by Diego & André
 
 #ifdef __cplusplus
 }
