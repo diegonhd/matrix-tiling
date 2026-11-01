@@ -9,7 +9,6 @@
     "sha256_C_c": "09d513466ee6dce5",
     "sha256_C_py": "3f12031880ad7039",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.1991303949798748e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -24,7 +23,6 @@
     "sha256_C_c": "237b29bbc04d2ba7",
     "sha256_C_py": "9b74f49a0d66f362",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2486499656461092e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -39,7 +37,6 @@
     "sha256_C_c": "f1a218820f6e3a32",
     "sha256_C_py": "f2fcaf39efec1cd1",
     "maior_erro_abs": 0.0001220703125,
-    "erro_rel_frob": 1.2478024302708945e-07,
     "erro_ulps": 2.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -54,7 +51,6 @@
     "sha256_C_c": "2a3468901cc654f5",
     "sha256_C_py": "2c8c239e59edb117",
     "maior_erro_abs": 0.0001373291015625,
-    "erro_rel_frob": 1.2026255546970788e-07,
     "erro_ulps": 2.25,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -69,7 +65,6 @@
     "sha256_C_c": "c4a5a7e7041a6f72",
     "sha256_C_py": "db1e7bc288514fed",
     "maior_erro_abs": 0.000152587890625,
-    "erro_rel_frob": 1.1673721189708886e-07,
     "erro_ulps": 2.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -84,7 +79,6 @@
     "sha256_C_c": "7f3c455d593707a0",
     "sha256_C_py": "2670fac111004776",
     "maior_erro_abs": 0.000152587890625,
-    "erro_rel_frob": 1.2307560837143683e-07,
     "erro_ulps": 2.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -99,7 +93,6 @@
     "sha256_C_c": "84f11e53b8c1476b",
     "sha256_C_py": "c3ac3691b4e2da88",
     "maior_erro_abs": 0.0001373291015625,
-    "erro_rel_frob": 1.201078703161329e-07,
     "erro_ulps": 2.25,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -114,7 +107,6 @@
     "sha256_C_c": "1310ab8629bfd9ca",
     "sha256_C_py": "d5da8a90b67f2b11",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2263068072115857e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -129,7 +121,6 @@
     "sha256_C_c": "624c82f50e45e60a",
     "sha256_C_py": "466517b19d0b9ae2",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.225739794108449e-07,
     "erro_ulps": 1.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -144,7 +135,6 @@
     "sha256_C_c": "ce1d24dfb1a4b1af",
     "sha256_C_py": "58e62686e9122fb2",
     "maior_erro_abs": 0.0001220703125,
-    "erro_rel_frob": 1.2229061496782379e-07,
     "erro_ulps": 1.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -159,7 +149,6 @@
     "sha256_C_c": "dcd425864ff673cb",
     "sha256_C_py": "5af8f2a8a03ac6f4",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2213511979553004e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -174,7 +163,6 @@
     "sha256_C_c": "c6a559f5b0484674",
     "sha256_C_py": "c7f6da5bf329ce8a",
     "maior_erro_abs": 0.0001220703125,
-    "erro_rel_frob": 1.1962828239120427e-07,
     "erro_ulps": 2.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -189,7 +177,6 @@
     "sha256_C_c": "4401dec54025d332",
     "sha256_C_py": "9361d16fd0f82b8d",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2711711860902142e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -204,7 +191,6 @@
     "sha256_C_c": "b2c3df4ecfe82c95",
     "sha256_C_py": "18991b028b452ffc",
     "maior_erro_abs": 0.0001220703125,
-    "erro_rel_frob": 1.1981347824985278e-07,
     "erro_ulps": 2.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -219,7 +205,6 @@
     "sha256_C_c": "e1dfd8a055f6da6e",
     "sha256_C_py": "e870e6140928d1c4",
     "maior_erro_abs": 0.00030517578125,
-    "erro_rel_frob": 1.2651946690311888e-07,
     "erro_ulps": 5.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -234,7 +219,6 @@
     "sha256_C_c": "74707286731a32d1",
     "sha256_C_py": "6e86e9457ebe8808",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2590417952651478e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -249,7 +233,6 @@
     "sha256_C_c": "1ea581504bb900a3",
     "sha256_C_py": "b64e5d740d26e5f6",
     "maior_erro_abs": 0.000152587890625,
-    "erro_rel_frob": 1.2278390215669788e-07,
     "erro_ulps": 2.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -264,7 +247,6 @@
     "sha256_C_c": "0a3d39ef7e18daa7",
     "sha256_C_py": "f19da67bb48b915c",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.1488657492009224e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -279,7 +261,6 @@
     "sha256_C_c": "b6ff9cacf2a51c9a",
     "sha256_C_py": "d07d48b58b30b9ba",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2306054486543871e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -294,7 +275,6 @@
     "sha256_C_c": "1a35d08443b6148b",
     "sha256_C_py": "dfd9844550d3cce9",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2259955894933228e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -309,7 +289,6 @@
     "sha256_C_c": "b7e4500805a657e0",
     "sha256_C_py": "9dd2eb5d58424a60",
     "maior_erro_abs": 0.000152587890625,
-    "erro_rel_frob": 1.272543244112967e-07,
     "erro_ulps": 2.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -324,7 +303,6 @@
     "sha256_C_c": "a1ea50ce24c4b36e",
     "sha256_C_py": "9a0faab2ae6ec19e",
     "maior_erro_abs": 0.000152587890625,
-    "erro_rel_frob": 1.2241315516803297e-07,
     "erro_ulps": 2.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -339,7 +317,6 @@
     "sha256_C_c": "1853b302142d1f1a",
     "sha256_C_py": "18a4756b25d56564",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2098352897282894e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -354,7 +331,6 @@
     "sha256_C_c": "f3928c2bc89656a4",
     "sha256_C_py": "c840103127770ad1",
     "maior_erro_abs": 0.000244140625,
-    "erro_rel_frob": 1.2641632451959595e-07,
     "erro_ulps": 4.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -369,7 +345,6 @@
     "sha256_C_c": "60fb6b79ecfbb9e3",
     "sha256_C_py": "d37549d3990881a0",
     "maior_erro_abs": 0.0001220703125,
-    "erro_rel_frob": 1.2634285440071835e-07,
     "erro_ulps": 2.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -384,7 +359,6 @@
     "sha256_C_c": "ca446b5a2bb1e754",
     "sha256_C_py": "db73eef7488e66e4",
     "maior_erro_abs": 0.000152587890625,
-    "erro_rel_frob": 1.244358145413571e-07,
     "erro_ulps": 2.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -399,7 +373,6 @@
     "sha256_C_c": "9e2f6dfbc0136314",
     "sha256_C_py": "93139385ca84c470",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.1968096202963352e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -414,7 +387,6 @@
     "sha256_C_c": "c4b1faa9ace5b090",
     "sha256_C_py": "67c982e28f863d8c",
     "maior_erro_abs": 0.00018310546875,
-    "erro_rel_frob": 1.2467397425552917e-07,
     "erro_ulps": 3.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -429,7 +401,6 @@
     "sha256_C_c": "bc1c7bb2c0de914b",
     "sha256_C_py": "cc752c3861ded977",
     "maior_erro_abs": 0.00030517578125,
-    "erro_rel_frob": 1.2780080282936979e-07,
     "erro_ulps": 5.0,
     "tolerancia_atol": 0.001,
     "status": "PASS"
@@ -444,7 +415,6 @@
     "sha256_C_c": "e4caf1fe2690a9ce",
     "sha256_C_py": "3aab464f9ee6c289",
     "maior_erro_abs": 0.000152587890625,
-    "erro_rel_frob": 1.1985008541159914e-07,
     "erro_ulps": 2.5,
     "tolerancia_atol": 0.001,
     "status": "PASS"
