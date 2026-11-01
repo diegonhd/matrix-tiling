@@ -155,7 +155,7 @@ matrix-tiling/
 
 Para explorar diretamente as implementações sem se perder nos detalhes:
 
-### 🔬 Tarefa 1 (Host x86_64)
+###  Tarefa 1 (Host x86_64)
 * **Geração de Entradas:** [`matrix_gen.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_gen.c) — Cria os 30 pares de matrizes aleatórias bipolares e casos unitários (Identidade, Zeros, Matriz Forçada).
 * **Multiplicação com Tiling Clássico:** [`matrix_multi.c`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_multi.c) — 6 laços aninhados dividindo a multiplicação em blocos $8 \times 8$ em disco.
 * **Gabarito em Python:** [`matrix_multi.py`](file:///c:/Users/diego/Desktop/repositorios/matrix-tiling/src_t1/matrix_multi.py) — Multiplicação vetorizada com NumPy para referência analítica.

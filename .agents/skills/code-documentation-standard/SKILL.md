@@ -174,7 +174,7 @@ O README de entrega deve ser direto, técnico e focado estritamente em:
    * Justificar por que a abordagem adotada foi o transporte UART com *Hardware-in-the-Loop* (HIL):
      * **Limitação de Memória Flash/SRAM**: Evita gravação estática de múltiplas matrizes de teste na memória Flash do MCU, preservando ciclos de escrita e economizando SRAM.
      * **Escalabilidade e Automação**: Permite testes contínuos automatizados disparados pelo Host PC em tempo real.
-
+4. **Não coloque emojis na documentação**
 ### Template de README
 
 ````markdown
