@@ -138,7 +138,7 @@ matrix-tiling/
 
 ---
 
-## 🧭 Comparativo Entre as Etapas T1 e T2
+## Comparativo Entre as Etapas T1 e T2
 
 | Aspecto | Tarefa 1 (T1) — Host x86_64 | Tarefa 2 (T2) — Embarcado STM32 |
 | :--- | :--- | :--- |
